@@ -1,0 +1,3000 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ร้านค้าดิจิทัลออนไลน์</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- ไอคอน -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+
+  <!-- SweetAlert2 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.all.min.js"></script>
+  
+  <!-- QR Code Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" 
+          integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==" 
+          crossorigin="anonymous" 
+          referrerpolicy="no-referrer"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              300: '#93c5fd',
+              400: '#60a5fa',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          },
+          fontFamily: {
+            sans: ['Sarabun', 'sans-serif'],
+          },
+          boxShadow: {
+            'soft': '0 4px 15px 0 rgba(0, 0, 0, 0.05)',
+            'hover': '0 10px 25px 0 rgba(0, 0, 0, 0.1)',
+          },
+        }
+      }
+    }
+  </script>
+  
+  <?!= include('styles'); ?>
+</head>
+
+<body class="bg-gray-50 min-h-screen flex flex-col font-sans">
+
+  <!-- แถบโหลดเมื่อกำลังดำเนินการ -->
+  <div id="loadingBar" class="h-1 w-full bg-primary-600 fixed top-0 left-0 z-50 hidden"></div>
+
+  <div x-data="main" x-cloak>
+    <!-- ส่วนหัวของเว็บไซต์ -->
+    <header class="bg-white shadow-sm sticky top-0 z-40">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16">
+          <div class="flex items-center">
+            <a href="#" @click.prevent="showPage('home')" class="flex items-center">
+              <img id="storeLogo" src="https://via.placeholder.com/40" alt="Logo" class="h-8 w-auto mr-2" x-show="!storeConfig?.store_logo">
+              <img :src="storeConfig?.store_logo" alt="Logo" class="h-8 w-auto mr-2" x-show="storeConfig?.store_logo">
+              <span class="text-xl font-semibold text-gray-900" x-text="storeConfig?.store_name || 'ร้านค้าดิจิทัลออนไลน์'"></span>
+            </a>
+          </div>
+
+          <!-- Desktop Navigation -->
+          <nav class="hidden md:flex items-center space-x-4">
+            <a href="#" class="text-gray-600 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors" 
+              :class="{'text-primary-600 font-semibold': currentPage === 'home'}"
+              @click.prevent="showPage('home')">หน้าหลัก</a>
+            <a href="#" class="text-gray-600 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors" 
+              :class="{'text-primary-600 font-semibold': currentPage === 'products'}"
+              @click.prevent="showPage('products')">สินค้าทั้งหมด</a>
+            <a href="#" class="text-gray-600 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors" 
+              :class="{'text-primary-600 font-semibold': currentPage === 'download'}"
+              @click.prevent="showPage('download')">ดาวน์โหลด</a>
+            
+            <!-- ตะกร้าสินค้า -->
+            <div class="relative" @click.outside="cartOpen = false">
+              <button @click="cartOpen = !cartOpen" type="button" class="text-gray-600 hover:text-primary-600 p-2 relative">
+                <i class="fas fa-shopping-cart text-lg"></i>
+                <span x-show="cart.length > 0" x-text="cart.length" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"></span>
+              </button>
+              
+              <!-- ดรอปดาวน์ตะกร้าสินค้า -->
+              <div x-show="cartOpen" 
+                   x-transition:enter="transition ease-out duration-200"
+                   x-transition:enter-start="opacity-0 translate-y-1"
+                   x-transition:enter-end="opacity-100 translate-y-0"
+                   x-transition:leave="transition ease-in duration-150"
+                   x-transition:leave-start="opacity-100 translate-y-0"
+                   x-transition:leave-end="opacity-0 translate-y-1"
+                   class="absolute right-0 mt-2 w-80 bg-white shadow-lg rounded-lg z-50">
+                <div class="p-4">
+                  <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-lg font-medium text-gray-900">ตะกร้าสินค้า</h3>
+                    <span class="text-sm text-gray-500" x-text="cart.length + ' รายการ'"></span>
+                  </div>
+                  
+                  <div x-show="cart.length === 0" class="py-8 text-center text-gray-500">
+                    <i class="fas fa-shopping-cart text-gray-300 text-3xl mb-2"></i>
+                    <p>ไม่มีสินค้าในตะกร้า</p>
+                  </div>
+                  
+                  <div x-show="cart.length > 0" class="space-y-4 max-h-60 overflow-y-auto">
+                    <template x-for="(item, index) in cart" :key="index">
+                      <div class="flex items-center justify-between border-b pb-3">
+                        <div class="flex items-center">
+                          <img :src="item?.image || 'https://via.placeholder.com/50'" alt="Product" class="w-12 h-12 object-cover rounded">
+                          <div class="ml-3">
+                            <p class="text-sm font-medium text-gray-900 line-clamp-1" x-text="item?.name || ''"></p>
+                            <p class="text-sm text-gray-500">
+                              <span x-text="'฿' + parseFloat(item?.price || 0).toFixed(2)"></span>
+                              <span x-show="item?.quantity > 1" x-text="' x ' + item?.quantity"></span>
+                            </p>
+                          </div>
+                        </div>
+                        <button @click="removeFromCart(index)" class="text-gray-400 hover:text-red-500 transition-colors">
+                          <i class="fas fa-trash-alt"></i>
+                        </button>
+                      </div>
+                    </template>
+                  </div>
+                  
+                  <div x-show="cart.length > 0" class="mt-4">
+                    <div class="flex justify-between font-medium py-2 border-t">
+                      <span>รวมทั้งสิ้น:</span>
+                      <span class="text-primary-600 font-bold" x-text="'฿' + calculateTotal().toFixed(2)"></span>
+                    </div>
+                    <button @click="showPage('checkout'); cartOpen = false" class="w-full bg-primary-600 hover:bg-primary-700 text-white rounded-md px-4 py-2 mt-2 transition-colors">
+                      <i class="fas fa-credit-card mr-2"></i> ชำระเงิน
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- ล็อกอิน/แดชบอร์ด -->
+            <template x-if="!currentUser">
+              <a href="#" @click.prevent="showPage('login')" class="text-gray-600 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                <i class="fas fa-sign-in-alt mr-1"></i> เข้าสู่ระบบ
+              </a>
+            </template>
+            
+            <template x-if="currentUser">
+              <div class="relative ml-3" @click.outside="profileOpen = false">
+                <div>
+                  <button @click="profileOpen = !profileOpen" type="button" class="flex items-center max-w-xs text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2" id="user-menu-button">
+                    <span class="sr-only">Open user menu</span>
+                    <div class="h-8 w-8 rounded-full bg-gradient-to-r from-primary-500 to-primary-700 text-white flex items-center justify-center">
+                      <span x-text="currentUser?.name?.charAt(0).toUpperCase() || 'U'"></span>
+                    </div>
+                  </button>
+                </div>
+                
+                <div x-show="profileOpen" 
+                     x-transition:enter="transition ease-out duration-200"
+                     x-transition:enter-start="opacity-0 translate-y-1"
+                     x-transition:enter-end="opacity-100 translate-y-0"
+                     x-transition:leave="transition ease-in duration-150"
+                     x-transition:leave-start="opacity-100 translate-y-0"
+                     x-transition:leave-end="opacity-0 translate-y-1"
+                     class="absolute right-0 mt-2 w-48 bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 rounded-md origin-top-right">
+                  <div class="px-4 py-2 border-b">
+                    <p class="text-sm font-medium text-gray-900" x-text="currentUser?.name || ''"></p>
+                    <p class="text-xs text-gray-500" x-text="currentUser?.email || ''"></p>
+                  </div>
+                  
+                  <!-- เพิ่มเมนูแดชบอร์ดลูกค้า -->
+                  <template x-if="currentUser && currentUser.role === 'customer'">
+                    <a href="#" @click.prevent="showPage('customerDashboard'); profileOpen = false" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
+                      <i class="fas fa-user-circle mr-2"></i> บัญชีของฉัน
+                    </a>
+                  </template>
+                  
+                  <template x-if="currentUser && currentUser.role === 'admin'">
+                    <a href="#" @click.prevent="showPage('dashboard'); profileOpen = false" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
+                      <i class="fas fa-tachometer-alt mr-2"></i> แดชบอร์ดผู้ดูแล
+                    </a>
+                  </template>
+                  
+                  <a href="#" @click.prevent="logout(); profileOpen = false" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition-colors">
+                    <i class="fas fa-sign-out-alt mr-2"></i> ออกจากระบบ
+                  </a>
+                </div>
+              </div>
+            </template>
+          </nav>
+
+          <!-- Mobile Header Items -->
+          <div class="flex items-center md:hidden">
+            <!-- Cart icon for mobile -->
+            <div class="relative" @click.outside="cartOpen = false">
+              <button @click="cartOpen = !cartOpen" type="button" class="text-gray-600 hover:text-primary-600 p-2 relative mr-1">
+                <i class="fas fa-shopping-cart text-lg"></i>
+                <span x-show="cart.length > 0" x-text="cart.length" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center"></span>
+              </button>
+              
+              <!-- ดรอปดาวน์ตะกร้าสินค้า (Mobile version) -->
+              <div x-show="cartOpen" 
+                   x-transition:enter="transition ease-out duration-200"
+                   x-transition:enter-start="opacity-0 translate-y-1"
+                   x-transition:enter-end="opacity-100 translate-y-0"
+                   x-transition:leave="transition ease-in duration-150"
+                   x-transition:leave-start="opacity-100 translate-y-0"
+                   x-transition:leave-end="opacity-0 translate-y-1"
+                   class="absolute right-0 mt-2 w-72 bg-white shadow-lg rounded-lg z-50">
+                <div class="p-4">
+                  <!-- เนื้อหาเหมือนกับตะกร้าในเดสก์ท็อป -->
+                  <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-lg font-medium text-gray-900">ตะกร้าสินค้า</h3>
+                    <span class="text-sm text-gray-500" x-text="cart.length + ' รายการ'"></span>
+                  </div>
+                  
+                  <div x-show="cart.length === 0" class="py-8 text-center text-gray-500">
+                    <i class="fas fa-shopping-cart text-gray-300 text-3xl mb-2"></i>
+                    <p>ไม่มีสินค้าในตะกร้า</p>
+                  </div>
+                  
+                  <div x-show="cart.length > 0" class="space-y-4 max-h-60 overflow-y-auto">
+                    <template x-for="(item, index) in cart" :key="index">
+                      <div class="flex items-center justify-between border-b pb-3">
+                        <div class="flex items-center">
+                          <img :src="item?.image || 'https://via.placeholder.com/50'" alt="Product" class="w-12 h-12 object-cover rounded">
+                          <div class="ml-3">
+                            <p class="text-sm font-medium text-gray-900 line-clamp-1" x-text="item?.name || ''"></p>
+                            <p class="text-sm text-gray-500">
+                              <span x-text="'฿' + parseFloat(item?.price || 0).toFixed(2)"></span>
+                              <span x-show="item?.quantity > 1" x-text="' x ' + item?.quantity"></span>
+                            </p>
+                          </div>
+                        </div>
+                        <button @click="removeFromCart(index)" class="text-gray-400 hover:text-red-500 transition-colors">
+                          <i class="fas fa-trash-alt"></i>
+                        </button>
+                      </div>
+                    </template>
+                  </div>
+                  
+                  <div x-show="cart.length > 0" class="mt-4">
+                    <div class="flex justify-between font-medium py-2 border-t">
+                      <span>รวมทั้งสิ้น:</span>
+                      <span class="text-primary-600 font-bold" x-text="'฿' + calculateTotal().toFixed(2)"></span>
+                    </div>
+                    <button @click="showPage('checkout'); cartOpen = false" class="w-full bg-primary-600 hover:bg-primary-700 text-white rounded-md px-4 py-2 mt-2 transition-colors">
+                      <i class="fas fa-credit-card mr-2"></i> ชำระเงิน
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- User/Login button for mobile -->
+            <template x-if="!currentUser">
+              <a href="#" @click.prevent="showPage('login')" class="text-gray-600 hover:text-primary-600 p-2 transition-colors mr-1">
+                <i class="fas fa-sign-in-alt text-lg"></i>
+              </a>
+            </template>
+            
+            <template x-if="currentUser">
+              <div class="relative" @click.outside="profileOpen = false">
+                <button @click="profileOpen = !profileOpen" type="button" class="p-1 text-gray-600 hover:text-primary-600 transition-colors mr-1">
+                  <div class="h-8 w-8 rounded-full bg-gradient-to-r from-primary-500 to-primary-700 text-white flex items-center justify-center">
+                    <span x-text="currentUser?.name?.charAt(0).toUpperCase() || 'U'"></span>
+                  </div>
+                </button>
+                
+                <div x-show="profileOpen" 
+                     x-transition:enter="transition ease-out duration-200"
+                     x-transition:enter-start="opacity-0 translate-y-1"
+                     x-transition:enter-end="opacity-100 translate-y-0"
+                     x-transition:leave="transition ease-in duration-150"
+                     x-transition:leave-start="opacity-100 translate-y-0"
+                     x-transition:leave-end="opacity-0 translate-y-1"
+                     class="absolute right-0 mt-2 w-48 bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 rounded-md origin-top-right">
+                  <!-- เนื้อหาเหมือนกับโปรไฟล์ในเดสก์ท็อป -->
+                  <div class="px-4 py-2 border-b">
+                    <p class="text-sm font-medium text-gray-900" x-text="currentUser?.name || ''"></p>
+                    <p class="text-sm text-gray-500" x-text="currentUser?.email || ''"></p>
+                  </div>
+                  
+                  <!-- เพิ่มเมนูแดชบอร์ดลูกค้า -->
+                  <template x-if="currentUser && currentUser.role === 'customer'">
+                    <a href="#" @click.prevent="showPage('customerDashboard'); profileOpen = false" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
+                      <i class="fas fa-user-circle mr-2"></i> บัญชีของฉัน
+                    </a>
+                  </template>
+                  
+                  <template x-if="currentUser && currentUser.role === 'admin'">
+                    <a href="#" @click.prevent="showPage('dashboard'); profileOpen = false" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
+                      <i class="fas fa-tachometer-alt mr-2"></i> แดชบอร์ดผู้ดูแล
+                    </a>
+                  </template>
+                  
+                  <a href="#" @click.prevent="logout(); profileOpen = false" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition-colors">
+                    <i class="fas fa-sign-out-alt mr-2"></i> ออกจากระบบ
+                  </a>
+                </div>
+              </div>
+            </template>
+            
+            <!-- Hamburger button for mobile menu -->
+            <button @click="mobileMenuOpen = !mobileMenuOpen" class="text-gray-600 hover:text-primary-600 p-2">
+              <i class="fas fa-bars text-lg"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Mobile Navigation Menu -->
+      <div x-show="mobileMenuOpen" 
+           x-transition:enter="transition ease-out duration-200"
+           x-transition:enter-start="opacity-0 translate-y-1"
+           x-transition:enter-end="opacity-100 translate-y-0"
+           x-transition:leave="transition ease-in duration-150"
+           x-transition:leave-start="opacity-100 translate-y-0"
+           x-transition:leave-end="opacity-0 translate-y-1"
+           class="md:hidden bg-white shadow-lg">
+        <div class="px-2 pt-2 pb-3 space-y-1">
+          <a href="#" @click.prevent="showPage('home'); mobileMenuOpen = false" 
+             class="block px-3 py-2 rounded-md text-base font-medium transition-colors flex items-center"
+             :class="{'bg-primary-50 text-primary-600': currentPage === 'home', 'text-gray-700 hover:bg-gray-50': currentPage !== 'home'}">
+            <i class="fas fa-home w-6 mr-2 text-center"></i> หน้าหลัก
+          </a>
+          <a href="#" @click.prevent="showPage('products'); mobileMenuOpen = false" 
+             class="block px-3 py-2 rounded-md text-base font-medium transition-colors flex items-center"
+             :class="{'bg-primary-50 text-primary-600': currentPage === 'products', 'text-gray-700 hover:bg-gray-50': currentPage !== 'products'}">
+            <i class="fas fa-box w-6 mr-2 text-center"></i> สินค้าทั้งหมด
+          </a>
+          <a href="#" @click.prevent="showPage('download'); mobileMenuOpen = false" 
+             class="block px-3 py-2 rounded-md text-base font-medium transition-colors flex items-center"
+             :class="{'bg-primary-50 text-primary-600': currentPage === 'download', 'text-gray-700 hover:bg-gray-50': currentPage !== 'download'}">
+            <i class="fas fa-download w-6 mr-2 text-center"></i> ดาวน์โหลด
+          </a>
+          
+          <!-- เพิ่มเมนูแดชบอร์ดลูกค้าในเมนูมือถือ -->
+          <template x-if="currentUser && currentUser.role === 'customer'">
+            <a href="#" @click.prevent="showPage('customerDashboard'); mobileMenuOpen = false" 
+               class="block px-3 py-2 rounded-md text-base font-medium transition-colors flex items-center"
+               :class="{'bg-primary-50 text-primary-600': currentPage === 'customerDashboard', 'text-gray-700 hover:bg-gray-50': currentPage !== 'customerDashboard'}">
+              <i class="fas fa-user-circle w-6 mr-2 text-center"></i> บัญชีของฉัน
+            </a>
+          </template>
+          
+          <!-- เพิ่มเมนูแดชบอร์ดผู้ดูแลในเมนูมือถือ -->
+          <template x-if="currentUser && currentUser.role === 'admin'">
+            <a href="#" @click.prevent="showPage('dashboard'); mobileMenuOpen = false" 
+               class="block px-3 py-2 rounded-md text-base font-medium transition-colors flex items-center"
+               :class="{'bg-primary-50 text-primary-600': currentPage === 'dashboard', 'text-gray-700 hover:bg-gray-50': currentPage !== 'dashboard'}">
+              <i class="fas fa-tachometer-alt w-6 mr-2 text-center"></i> แดชบอร์ดผู้ดูแล
+            </a>
+          </template>
+        </div>
+      </div>
+    </header>
+
+    <!-- เนื้อหาหลัก -->
+    <main class="flex-1">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <!-- ข้อความประกาศ -->
+        <div x-show="storeConfig?.announcement" class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 rounded-md">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <i class="fas fa-bullhorn text-blue-400"></i>
+            </div>
+            <div class="ml-3">
+              <p class="text-sm text-blue-700" x-text="storeConfig?.announcement || ''"></p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- หน้าหลัก -->
+        <div x-show="currentPage === 'home'" x-transition>
+          <!-- Hero Banner -->
+          <div class="relative h-64 sm:h-80 md:h-96 rounded-xl overflow-hidden mb-8 bg-gradient-to-r from-blue-500 to-primary-600">
+            <div class="absolute inset-0 bg-black opacity-30"></div>
+            <div class="relative h-full flex flex-col justify-center text-white p-6 md:p-12">
+              <h1 class="text-2xl md:text-4xl font-bold mb-2" x-text="storeConfig?.welcome_message || 'ยินดีต้อนรับสู่ร้านค้าดิจิทัล'"></h1>
+              <p class="text-lg md:text-xl opacity-90 mb-6" x-text="storeConfig?.store_description || 'ร้านค้าดิจิทัลออนไลน์ครบวงจร'"></p>
+              <button @click="showPage('products')" class="bg-white text-primary-600 hover:bg-opacity-90 font-medium px-6 py-3 rounded-md inline-flex items-center w-max shadow-md transition-all">
+                <i class="fas fa-shopping-basket mr-2"></i> เลือกซื้อสินค้าเลย
+              </button>
+            </div>
+          </div>
+          
+          <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+            <i class="fas fa-star text-yellow-500 mr-2"></i> สินค้าแนะนำ
+          </h2>
+          
+          <!-- แสดงว่ายังไม่มีสินค้า -->
+          <div x-show="featuredProducts.length === 0" class="bg-white rounded-xl shadow-soft p-10 text-center">
+            <i class="fas fa-box-open text-gray-300 text-5xl mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-600">ยังไม่มีสินค้าในระบบ</h3>
+            <p class="text-gray-500 mb-4">กรุณาเพิ่มสินค้าในหน้าแดชบอร์ด หรือกลับมาใหม่ในภายหลัง</p>
+          </div>
+          
+          <!-- แสดงสินค้าแนะนำ -->
+          <div x-show="featuredProducts.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
+            <template x-for="product in featuredProducts" :key="product?.product_id">
+              <div class="bg-white rounded-xl shadow-soft overflow-hidden group hover:shadow-hover transition-all">
+                <div class="relative overflow-hidden h-48">
+                  <img :src="product?.image || 'https://via.placeholder.com/300x200?text=No+Image'" :alt="product?.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                  <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 text-white transform translate-y-full group-hover:translate-y-0 transition-transform">
+                    <p class="text-sm line-clamp-3" x-text="product?.description || 'ไม่มีคำอธิบาย'"></p>
+                  </div>
+                </div>
+                <div class="p-4">
+                 <div class="flex justify-between items-start mb-1">
+                   <h3 class="text-lg font-semibold text-gray-900 line-clamp-1" x-text="product?.name || ''"></h3>
+                   <span class="bg-primary-100 text-primary-800 text-xs font-medium px-2 py-1 rounded">ดิจิทัล</span>
+                 </div>
+                 <p class="text-primary-600 font-bold mb-3" x-text="'฿' + parseFloat(product?.price || 0).toFixed(2)"></p>
+                 <div class="flex space-x-2">
+                   <button @click="addToCart(product)" class="flex-1 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                     <i class="fas fa-cart-plus mr-1"></i> ซื้อเลย
+                   </button>
+                   <button @click="showProductDetail(product)" class="bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded-md text-sm transition-colors">
+                     <i class="fas fa-eye"></i>
+                   </button>
+                 </div>
+               </div>
+             </div>
+           </template>
+         </div>
+         
+         <div class="text-center">
+           <button @click="showPage('products')" class="bg-primary-600 hover:bg-primary-700 text-white px-8 py-3 rounded-md font-medium transition-colors">
+             ดูสินค้าทั้งหมด <i class="fas fa-arrow-right ml-2"></i>
+           </button>
+         </div>
+       </div>
+       
+       <!-- หน้าสินค้าทั้งหมด -->
+       <div x-show="currentPage === 'products'" x-transition>
+         <h1 class="text-2xl font-bold text-gray-900 mb-6">สินค้าทั้งหมด</h1>
+         
+         <div class="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+           <div class="md:col-span-3">
+             <div class="relative">
+               <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                 <i class="fas fa-search text-gray-400"></i>
+               </div>
+               <input type="text" x-model="searchQuery" class="bg-white w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="ค้นหาสินค้า...">
+             </div>
+           </div>
+           <div>
+             <select x-model="sortOption" class="w-full bg-white border border-gray-300 rounded-md py-3 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+               <option value="price-asc">ราคา: ต่ำไปสูง</option>
+               <option value="price-desc">ราคา: สูงไปต่ำ</option>
+               <option value="name-asc">ชื่อ: ก-ฮ</option>
+               <option value="name-desc">ชื่อ: ฮ-ก</option>
+             </select>
+           </div>
+         </div>
+         
+         <!-- ถ้าไม่มีสินค้า -->
+         <div x-show="filteredProducts.length === 0" class="bg-white rounded-xl shadow-soft p-10 text-center">
+           <i class="fas fa-search text-gray-300 text-5xl mb-4"></i>
+           <h3 class="text-lg font-medium text-gray-600">ไม่พบสินค้าที่ตรงกับการค้นหา</h3>
+           <p class="text-gray-500 mb-4">ลองค้นหาด้วยคำอื่น หรือดูสินค้าทั้งหมดโดยล้างการค้นหา</p>
+           <button @click="searchQuery = ''" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md">
+             <i class="fas fa-redo mr-2"></i> ล้างการค้นหา
+           </button>
+         </div>
+         
+         <!-- แสดงสินค้า -->
+         <div x-show="filteredProducts.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+           <template x-for="product in filteredProducts" :key="product?.product_id">
+             <div class="bg-white rounded-xl shadow-soft overflow-hidden group hover:shadow-hover transition-all">
+               <div class="relative overflow-hidden h-48">
+                 <img :src="product?.image || 'https://via.placeholder.com/300x200?text=No+Image'" :alt="product?.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                 <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 text-white transform translate-y-full group-hover:translate-y-0 transition-transform">
+                   <p class="text-sm line-clamp-3" x-text="product?.description || 'ไม่มีคำอธิบาย'"></p>
+                 </div>
+               </div>
+               <div class="p-4">
+                 <div class="flex justify-between items-start mb-1">
+                   <h3 class="text-lg font-semibold text-gray-900 line-clamp-1" x-text="product?.name || ''"></h3>
+                   <span class="bg-primary-100 text-primary-800 text-xs font-medium px-2 py-1 rounded">ดิจิทัล</span>
+                 </div>
+                 <p class="text-primary-600 font-bold mb-3" x-text="'฿' + parseFloat(product?.price || 0).toFixed(2)"></p>
+                 <div class="flex space-x-2">
+                   <button @click="addToCart(product)" class="flex-1 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                     <i class="fas fa-cart-plus mr-1"></i> ซื้อเลย
+                   </button>
+                   <button @click="showProductDetail(product)" class="bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded-md text-sm transition-colors">
+                     <i class="fas fa-eye"></i>
+                   </button>
+                 </div>
+               </div>
+             </div>
+           </template>
+         </div>
+       </div>
+       
+       <!-- หน้ารายละเอียดสินค้า -->
+       <div x-show="currentPage === 'productDetail' && currentProduct" x-transition>
+         <div class="mb-4">
+           <button @click="goBack()" class="text-primary-600 hover:text-primary-700 flex items-center">
+             <i class="fas fa-arrow-left mr-1"></i> กลับ
+           </button>
+         </div>
+         
+         <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+           <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+             <!-- รูปภาพสินค้า -->
+             <div>
+               <div class="rounded-xl overflow-hidden mb-4">
+                 <img :src="currentProduct?.image || 'https://via.placeholder.com/500x500?text=No+Image'" :alt="currentProduct?.name" 
+                      class="w-full rounded-lg object-cover h-80 hover:scale-105 transition-transform duration-300 cursor-pointer"
+                      @click="previewProductImage(currentProduct?.image)">
+               </div>
+             </div>
+             
+             <!-- ข้อมูลสินค้า -->
+             <div>
+               <div class="flex items-center justify-between mb-2">
+                 <span class="bg-primary-100 text-primary-800 text-sm font-medium px-3 py-1 rounded-full">สินค้าดิจิทัล</span>
+                 <span x-show="currentProduct?.status === 'active'" class="bg-green-100 text-green-800 text-sm font-medium px-3 py-1 rounded-full">
+                   <i class="fas fa-check-circle mr-1"></i> พร้อมจำหน่าย
+                 </span>
+               </div>
+               <h1 class="text-2xl font-bold text-gray-900 mb-2" x-text="currentProduct?.name || ''"></h1>
+               <div class="text-3xl font-bold text-primary-600 mb-4" x-text="currentProduct ? '฿' + parseFloat(currentProduct.price || 0).toFixed(2) : ''"></div>
+               
+               <!-- กล่องดาวน์โหลดและตัวอย่าง -->
+               <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                 <h3 class="font-medium text-gray-800 mb-3 flex items-center">
+                   <i class="fas fa-info-circle text-primary-600 mr-2"></i>
+                   <span x-text="currentProduct?.name || 'สินค้าดิจิทัล'"></span>
+                 </h3>
+                 
+                 <div class="space-y-2">
+                   <div class="flex items-center text-gray-700">
+                     <div class="w-8 text-center text-primary-600">
+                       <i class="fas fa-download"></i>
+                     </div>
+                     <span>สินค้าดิจิทัลสำหรับดาวน์โหลด</span>
+                   </div>
+                   <div class="flex items-center text-gray-700">
+                     <div class="w-8 text-center text-primary-600">
+                       <i class="fas fa-key"></i>
+                     </div>
+                     <span>รับรหัสดาวน์โหลดทางอีเมลหลังชำระเงิน</span>
+                   </div>
+                   <div class="flex items-center text-gray-700">
+                     <div class="w-8 text-center text-primary-600">
+                       <i class="fas fa-clock"></i>
+                     </div>
+                     <span>ดาวน์โหลดได้ตามเงื่อนไขที่กำหนด</span>
+                   </div>
+                 </div>
+                 
+                 <!-- ปุ่มดูตัวอย่างระบบ - แสดงเฉพาะเมื่อมีลิงก์ demo -->
+                 <div x-show="currentProduct?.demo_link" class="mt-3 pt-3 border-t border-gray-200">
+                   <a :href="currentProduct?.demo_link" target="_blank" 
+                      class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md text-sm font-medium transition-colors flex items-center justify-center">
+                     <i class="fas fa-desktop mr-2"></i> ดูตัวอย่างระบบ <span x-text="currentProduct?.name || ''"></span>
+                   </a>
+                 </div>
+               </div>
+               
+               <!-- รายละเอียดสินค้า - แบบปรับปรุงใหม่ -->
+               <div x-show="currentProduct?.description" class="mb-6" x-data="{ expanded: false }">
+                 <h3 class="text-lg font-medium text-gray-900 mb-2 flex items-center">
+                   <i class="fas fa-info-circle text-primary-600 mr-2"></i> รายละเอียดสินค้า
+                 </h3>
+                 
+                 <!-- แสดงรายละเอียดแบบย่อ (แสดงเมื่อยังไม่ขยาย) -->
+                 <div x-show="!expanded" class="relative">
+                   <div class="prose prose-sm max-w-none text-gray-700 overflow-hidden" style="max-height: 120px;">
+                     <div x-html="formatDescription(currentProduct?.description || 'ไม่มีคำอธิบายสินค้า')" class="whitespace-pre-line"></div>
+                   </div>
+                   <div class="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white to-transparent"></div>
+                 </div>
+                 
+                 <!-- แสดงรายละเอียดแบบเต็ม (แสดงเมื่อขยาย) -->
+                 <div x-show="expanded" class="prose prose-sm max-w-none text-gray-700 bg-gray-50 p-4 rounded-lg border border-gray-100 mb-2">
+                   <div x-html="formatDescription(currentProduct?.description || 'ไม่มีคำอธิบายสินค้า')" class="whitespace-pre-line"></div>
+                 </div>
+                 
+                 <!-- ปุ่มขยาย/ย่อ -->
+                 <button @click.prevent="expanded = !expanded" 
+                         class="text-primary-600 hover:text-primary-800 text-sm font-medium flex items-center mt-1 cursor-pointer z-10 relative">
+                   <template x-if="!expanded">
+                     <span><i class="fas fa-angle-down mr-1"></i> อ่านเพิ่มเติม</span>
+                   </template>
+                   <template x-if="expanded">
+                     <span><i class="fas fa-angle-up mr-1"></i> ย่อรายละเอียด</span>
+                   </template>
+                 </button>
+               </div>
+               
+               <button @click="addToCart(currentProduct)" class="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 px-6 rounded-md text-base font-medium transition-colors shadow-md">
+                 <i class="fas fa-cart-plus mr-2"></i> เพิ่มลงตะกร้า
+               </button>
+             </div>
+           </div>
+         </div>
+       </div>
+       
+       <!-- หน้าชำระเงิน -->
+       <div x-show="currentPage === 'checkout'" x-transition>
+         <h1 class="text-2xl font-bold text-gray-900 mb-6">ชำระเงิน</h1>
+         
+         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+           <div class="lg:col-span-2 space-y-6">
+             <!-- ข้อมูลลูกค้า -->
+             <div class="bg-white rounded-xl shadow-soft p-6" x-show="!orderCreated">
+               <h2 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                 <i class="fas fa-user-circle text-primary-600 mr-2"></i> ข้อมูลลูกค้า
+               </h2>
+               <div class="space-y-4">
+                 <div>
+                   <label for="customerName" class="block text-sm font-medium text-gray-700 mb-1">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
+                   <input type="text" id="customerName" x-model="customerInfo.name" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" 
+                          :readonly="currentUser !== null">
+                 </div>
+                 <div>
+                   <label for="customerEmail" class="block text-sm font-medium text-gray-700 mb-1">อีเมล <span class="text-red-500">*</span></label>
+                   <input type="email" id="customerEmail" x-model="customerInfo.email" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          :readonly="currentUser !== null">
+                   <p class="text-xs text-gray-500 mt-1">* รหัสดาวน์โหลดจะถูกส่งไปยังอีเมลนี้</p>
+                 </div>
+                 <div>
+                   <label for="customerPhone" class="block text-sm font-medium text-gray-700 mb-1">เบอร์โทรศัพท์ <span class="text-red-500">*</span></label>
+                   <input type="tel" id="customerPhone" x-model="customerInfo.phone" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          :readonly="currentUser !== null">
+                 </div>
+                 
+                 <!-- ส่วนสมัครสมาชิก - แสดงเฉพาะเมื่อยังไม่ได้เข้าสู่ระบบ -->
+                 <div class="border-t pt-4 mt-4" x-show="!currentUser">
+                   <div class="flex items-center mb-3">
+                     <input type="checkbox" id="registerMember" x-model="customerInfo.register" class="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                     <label for="registerMember" class="ml-2 block text-sm text-gray-700 font-medium">
+                       สมัครสมาชิกเพื่อติดตามคำสั่งซื้อและดาวน์โหลดสินค้าได้สะดวกขึ้น
+                     </label>
+                   </div>
+                   
+                   <!-- แสดงฟิลด์ตั้งรหัสผ่านเมื่อเลือกสมัครสมาชิก -->
+                   <div x-show="customerInfo.register" x-transition>
+                     <div class="mb-4">
+                       <label for="customerPassword" class="block text-sm font-medium text-gray-700 mb-1">ตั้งรหัสผ่าน <span class="text-red-500">*</span></label>
+                       <div class="relative">
+                         <input 
+                           :type="showPassword ? 'text' : 'password'" 
+                           id="customerPassword" 
+                           x-model="customerInfo.password" 
+                           class="w-full border border-gray-300 rounded-md py-2 pl-3 pr-10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                         >
+                         <button 
+                           @click="showPassword = !showPassword" 
+                           type="button" 
+                           class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700"
+                         >
+                           <i class="fas" :class="showPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+                         </button>
+                       </div>
+                       <p class="text-xs text-gray-500 mt-1">รหัสผ่านควรมีอย่างน้อย 6 ตัวอักษร</p>
+                     </div>
+                     
+                     <div>
+                       <label for="customerConfirmPassword" class="block text-sm font-medium text-gray-700 mb-1">ยืนยันรหัสผ่าน <span class="text-red-500">*</span></label>
+                       <div class="relative">
+                         <input 
+                           :type="showConfirmPassword ? 'text' : 'password'" 
+                           id="customerConfirmPassword" 
+                           x-model="customerInfo.confirmPassword" 
+                           class="w-full border border-gray-300 rounded-md py-2 pl-3 pr-10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                         >
+                         <button 
+                           @click="showConfirmPassword = !showConfirmPassword" 
+                           type="button" 
+                           class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700"
+                         >
+                           <i class="fas" :class="showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+                         </button>
+                       </div>
+                     </div>
+                   </div>
+                   
+                   <div x-show="customerInfo.register" class="mt-4 bg-blue-50 rounded-md p-3">
+                     <p class="text-sm text-blue-800 flex items-center">
+                       <i class="fas fa-info-circle mr-2"></i>
+                       เมื่อสมัครสมาชิก คุณจะสามารถเข้าสู่ระบบได้ในภายหลัง เพื่อดูประวัติการสั่งซื้อและดาวน์โหลดสินค้าได้อีกครั้ง
+                     </p>
+                   </div>
+                 </div>
+                 
+                 <!-- ข้อความแสดงเมื่อเข้าสู่ระบบแล้ว -->
+                 <div class="border-t pt-4 mt-4" x-show="currentUser">
+                   <div class="bg-blue-50 rounded-md p-3">
+                     <p class="text-sm text-blue-800 flex items-center">
+                       <i class="fas fa-user-check mr-2"></i>
+                       คุณกำลังสั่งซื้อในฐานะสมาชิก ระบบจะบันทึกข้อมูลการสั่งซื้อ และคุณจะสามารถดูประวัติและดาวน์โหลดสินค้าได้ในภายหลัง
+                     </p>
+                   </div>
+                 </div>
+               </div>
+             </div>
+             
+             <!-- การชำระเงิน -->
+             <div x-show="orderCreated" class="bg-white rounded-xl shadow-soft p-6">
+               <h2 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                 <i class="fas fa-money-bill-wave text-primary-600 mr-2"></i> เลือกวิธีการชำระเงิน
+               </h2>
+               
+               <div class="flex flex-col space-y-3 mb-4">
+                 <button @click="paymentMethod = 'qrcode'" class="flex items-center p-3 border rounded-lg" :class="paymentMethod === 'qrcode' ? 'border-primary-500 bg-primary-50' : 'border-gray-300 hover:bg-gray-50'">
+                   <i class="fas fa-qrcode text-xl mr-3" :class="paymentMethod === 'qrcode' ? 'text-primary-600' : 'text-gray-500'"></i>
+                   <div class="flex-1">
+                     <div class="font-medium" :class="paymentMethod === 'qrcode' ? 'text-primary-700' : 'text-gray-700'">ชำระเงินด้วย QR Code</div>
+                     <div class="text-sm text-gray-500">สแกน QR Code เพื่อชำระเงินผ่านแอปธนาคาร</div>
+                   </div>
+                   <i class="fas fa-check-circle text-primary-600" x-show="paymentMethod === 'qrcode'"></i>
+                 </button>
+                 
+                 <button @click="paymentMethod = 'bank'" class="flex items-center p-3 border rounded-lg" :class="paymentMethod === 'bank' ? 'border-primary-500 bg-primary-50' : 'border-gray-300 hover:bg-gray-50'">
+                   <i class="fas fa-university text-xl mr-3" :class="paymentMethod === 'bank' ? 'text-primary-600' : 'text-gray-500'"></i>
+                   <div class="flex-1">
+                     <div class="font-medium" :class="paymentMethod === 'bank' ? 'text-primary-700' : 'text-gray-700'">โอนผ่านบัญชีธนาคาร</div>
+                     <div class="text-sm text-gray-500">โอนเงินเข้าบัญชีธนาคารของร้านค้า</div>
+                   </div>
+                   <i class="fas fa-check-circle text-primary-600" x-show="paymentMethod === 'bank'"></i>
+                 </button>
+               </div>
+               
+               <div class="flex flex-col md:flex-row gap-6">
+                 <div class="flex-1">
+                   <!-- แสดง QR Code ที่อัพโหลด -->
+                   <div x-show="paymentMethod === 'qrcode'" class="bg-white p-4 rounded-lg shadow-sm flex justify-center items-center h-64 border border-gray-200">
+                     <div x-show="!storeConfig.payment_qrcode" class="text-center text-gray-500">
+                       <i class="fas fa-exclamation-circle text-4xl mb-2"></i>
+                       <p>ยังไม่ได้ตั้งค่า QR Code สำหรับชำระเงิน</p>
+                     </div>
+                     
+                     <!-- เพิ่ม class cursor-pointer และ event @click -->
+                     <img x-show="storeConfig.payment_qrcode" 
+                          :src="storeConfig.payment_qrcode" 
+                          alt="Payment QR Code" 
+                          class="max-h-64 max-w-full cursor-pointer hover:opacity-90 transition-opacity" 
+                          @click="showLargeQRCode()">
+                   </div>
+                   
+                   <!-- แสดงข้อมูลบัญชีธนาคาร -->
+                   <div x-show="paymentMethod === 'bank'" class="bg-white p-4 rounded-lg shadow-sm h-64 border border-gray-200 overflow-y-auto">
+                     <h3 class="text-md font-medium text-gray-900 mb-3 flex items-center">
+                       <i class="fas fa-university text-primary-600 mr-2"></i> ข้อมูลบัญชีธนาคาร
+                     </h3>
+                     
+                     <div x-show="!storeConfig.bank_account_info" class="text-center text-gray-500 py-6">
+                       <i class="fas fa-exclamation-circle text-4xl mb-2"></i>
+                       <p>ยังไม่ได้ตั้งค่าข้อมูลบัญชีธนาคาร</p>
+                     </div>
+                     
+                     <div x-show="storeConfig.bank_account_info">
+                       <pre class="whitespace-pre-wrap text-gray-700 bg-gray-50 p-4 rounded-lg" x-text="storeConfig.bank_account_info"></pre>
+                     </div>
+                   </div>
+                   
+                   <div class="text-sm text-gray-600 mt-3 p-3 bg-gray-50 rounded-lg">
+                     <div class="flex items-center mb-1">
+                       <i class="fas fa-info-circle text-primary-600 mr-2"></i>
+                       <p>กรุณาชำระเงินตามจำนวนที่ระบุ</p>
+                     </div>
+                     <p class="ml-6" x-text="'จำนวนเงิน: ฿' + calculateTotal().toFixed(2)"></p>
+                     <p class="ml-6" x-text="'รหัสคำสั่งซื้อ: ' + currentOrderId"></p>
+                     <p class="ml-6 text-red-600">* หลังจากชำระเงินแล้ว กรุณาอัพโหลดหลักฐานการโอนเงิน</p>
+                   </div>
+                 </div>
+                 
+                 <div class="flex-1">
+                   <h3 class="text-md font-medium text-gray-900 mb-3 flex items-center">
+                     <i class="fas fa-receipt text-primary-600 mr-2"></i> อัพโหลดสลิปการโอนเงิน
+                   </h3>
+                   <div 
+                     id="uploadSlipArea" 
+                     @click="document.getElementById('slipFile').click()" 
+                     class="border-2 border-dashed border-gray-300 rounded-lg py-6 px-4 text-center cursor-pointer hover:border-primary-500 transition-colors bg-gray-50 h-64 flex flex-col justify-center items-center">
+                     <input type="file" id="slipFile" accept="image/*" class="hidden" @change="handleSlipUpload">
+                     <div x-show="!slipImage" class="space-y-2">
+                       <i class="fas fa-cloud-upload-alt text-gray-400 text-4xl"></i>
+                       <p class="text-sm text-gray-500">คลิกเพื่ออัพโหลดสลิปการโอนเงิน</p>
+                       <p class="text-xs text-gray-400">(รองรับไฟล์ JPG, PNG)</p>
+                     </div>
+                     <div x-show="slipImage" class="text-center">
+                       <img :src="slipImage" class="max-h-48 inline-block mb-2 rounded-lg">
+                       <button @click.stop="removeSlip" class="bg-red-100 text-red-600 hover:bg-red-200 px-3 py-1 rounded-md text-sm font-medium mt-2">
+                         <i class="fas fa-times mr-1"></i> ลบรูปภาพ
+                       </button>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+               
+               <button 
+                 @click="confirmPayment"
+                 x-bind:disabled="!slipImage"
+                 class="w-full mt-6 bg-primary-600 hover:bg-primary-700 text-white py-3 px-4 rounded-md text-base font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
+                 <i class="fas fa-check-circle mr-2"></i> ยืนยันการชำระเงิน
+               </button>
+             </div>
+           </div>
+           
+           <!-- สรุปคำสั่งซื้อ -->
+           <div class="bg-white rounded-xl shadow-soft p-6 h-fit">
+             <h2 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+               <i class="fas fa-shopping-basket text-primary-600 mr-2"></i> สรุปรายการสั่งซื้อ
+             </h2>
+             
+             <div x-show="cart.length === 0" class="text-center py-8 text-gray-500">
+               <i class="fas fa-shopping-cart text-gray-300 text-3xl mb-2"></i>
+               <p>ไม่มีสินค้าในตะกร้า</p>
+               <button @click="showPage('products')" class="mt-4 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md text-sm">
+                 เลือกซื้อสินค้า
+               </button>
+             </div>
+             
+             <div x-show="cart.length > 0" class="space-y-4">
+               <template x-for="(item, index) in cart" :key="index">
+                 <div class="flex justify-between pb-3 border-b">
+                   <div class="flex items-start">
+                     <img :src="item?.image || 'https://via.placeholder.com/50'" class="w-10 h-10 rounded object-cover mr-3">
+                     <div>
+                       <p class="text-sm font-medium text-gray-900" x-text="item?.name || ''"></p>
+                       <p class="text-xs text-gray-500" x-text="'x' + (item?.quantity || 1)"></p>
+                     </div>
+                   </div>
+                   <p class="text-sm font-medium text-gray-900" x-text="'฿' + ((parseFloat(item?.price || 0) * (item?.quantity || 1)).toFixed(2))"></p>
+                 </div>
+               </template>
+               
+               <div class="flex justify-between pt-3 border-t">
+                 <p class="font-medium text-gray-900">รวมทั้งสิ้น</p>
+                 <p class="font-bold text-primary-600 text-lg" x-text="'฿' + calculateTotal().toFixed(2)"></p>
+               </div>
+               
+               <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-600 my-3">
+                 <div class="flex items-center">
+                   <i class="fas fa-info-circle text-primary-600 mr-2"></i>
+                   <p>สินค้าดิจิทัลจะส่งรหัสดาวน์โหลดทางอีเมลหลังจากชำระเงิน</p>
+                 </div>
+               </div>
+               
+               <button 
+                 x-show="!orderCreated"
+                 @click="createOrder"
+                 class="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 px-4 rounded-md text-base font-medium transition-colors shadow-md">
+                 <i class="fas fa-shopping-cart mr-2"></i> ยืนยันการสั่งซื้อ
+               </button>
+             </div>
+           </div>
+         </div>
+       </div>
+       
+       <!-- หน้าดาวน์โหลด -->
+       <div x-show="currentPage === 'download'" x-transition>
+         <h1 class="text-2xl font-bold text-gray-900 mb-6">ดาวน์โหลดสินค้า</h1>
+         
+         <div class="max-w-lg mx-auto">
+           <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-soft overflow-hidden">
+             <div class="px-6 py-8 bg-white border-b">
+               <div class="text-center">
+                 <div class="inline-flex items-center justify-center h-16 w-16 rounded-full bg-primary-100 text-primary-600 mb-4">
+                   <i class="fas fa-download text-2xl"></i>
+                 </div>
+                 <h2 class="text-xl font-bold text-gray-900 mb-1">กรอกรหัสดาวน์โหลด</h2>
+                 <p class="text-gray-600 text-sm mb-4">รหัสดาวน์โหลดได้ถูกส่งไปยังอีเมลของคุณ</p>
+               </div>
+               
+               <form @submit.prevent="downloadProduct" class="mt-6">
+                 <div class="relative">
+                   <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                     <i class="fas fa-key text-gray-400"></i>
+                   </div>
+                   <input 
+                     type="text" 
+                     id="downloadToken" 
+                     x-model="downloadToken" 
+                     class="w-full pl-10 pr-4 border border-gray-300 bg-white rounded-md py-3 px-4 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 shadow-sm" 
+                     placeholder="กรุณากรอกรหัสดาวน์โหลดที่ได้รับทางอีเมล"
+                     required
+                   >
+                 </div>
+                 
+                 <button 
+                   type="submit" 
+                   class="w-full mt-4 bg-primary-600 hover:bg-primary-700 text-white py-3 px-4 rounded-md text-base font-medium transition-colors shadow-md flex items-center justify-center"
+                 >
+                   <i class="fas fa-cloud-download-alt mr-2"></i> ดาวน์โหลดสินค้า
+                 </button>
+               </form>
+             </div>
+             
+             <div class="p-6 bg-gradient-to-br from-blue-50 to-indigo-50">
+               <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+                 <div class="flex items-center text-gray-700 mb-3">
+                   <div class="h-8 w-8 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center mr-2">
+                     <i class="fas fa-lightbulb"></i>
+                   </div>
+                   <h3 class="font-semibold">คำแนะนำ</h3>
+                 </div>
+                 <ul class="text-sm text-gray-600 space-y-2">
+                   <li class="flex items-start">
+                     <i class="fas fa-check-circle text-green-500 mt-1 mr-2"></i>
+                     <span>รหัสดาวน์โหลดจะถูกส่งไปยังอีเมลหลังจากชำระเงินเรียบร้อย</span>
+                   </li>
+                   <li class="flex items-start">
+                     <i class="fas fa-check-circle text-green-500 mt-1 mr-2"></i>
+                     <span>คุณสามารถดาวน์โหลดสินค้าได้ทันทีหลังจากกรอกรหัสที่ถูกต้อง</span>
+                   </li>
+                   <li class="flex items-start">
+                     <i class="fas fa-check-circle text-green-500 mt-1 mr-2"></i>
+                     <span>หากมีปัญหาในการดาวน์โหลด กรุณาติดต่อฝ่ายบริการลูกค้า</span>
+                   </li>
+                 </ul>
+               </div>
+             </div>
+           </div>
+         </div>
+         
+         <!-- แสดงข้อมูลดาวน์โหลด เมื่อมีการตรวจสอบรหัสสำเร็จ -->
+         <div x-show="downloadInfo !== null" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 transform translate-y-4" x-transition:enter-end="opacity-100 transform translate-y-0" class="max-w-lg mx-auto mt-8">
+           <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-green-100">
+             <div class="p-6 text-center bg-gradient-to-r from-green-50 to-emerald-50">
+               <div class="inline-flex items-center justify-center h-20 w-20 rounded-full bg-green-100 text-green-600 mb-4">
+                 <i class="fas fa-check-circle text-3xl"></i>
+               </div>
+               <h3 class="text-xl font-bold text-gray-900 mb-1" x-text="downloadInfo?.productTitle || 'ดาวน์โหลด'"></h3>
+               <p class="text-gray-600 mb-4" x-text="downloadInfo?.description || ''"></p>
+               
+               <div class="bg-white rounded-md border border-gray-200 p-4 mb-4 shadow-sm">
+                 <div class="flex items-center justify-between mb-2">
+                   <span class="text-sm text-gray-500">รหัสดาวน์โหลด:</span>
+                   <span class="text-sm font-mono bg-gray-100 px-2 py-1 rounded" x-text="downloadToken"></span>
+                 </div>
+                 <div class="flex items-center text-gray-600 text-sm">
+                   <i class="fas fa-infinity text-purple-500 mr-2"></i>
+                   <span>ไม่จำกัดอายุการใช้งาน - สามารถดาวน์โหลดได้ตลอดไป</span>
+                 </div>
+               </div>
+               
+               <a 
+                 :href="downloadInfo?.url || '#'" 
+                 target="_blank" 
+                 class="inline-flex items-center justify-center w-full bg-green-600 hover:bg-green-700 text-white py-4 px-6 rounded-lg text-base font-medium transition-all transform hover:scale-[1.02] shadow-lg"
+               >
+                 <i class="fas fa-cloud-download-alt text-xl mr-3"></i>
+                 <span>
+                   <span class="block font-bold">ดาวน์โหลดไฟล์</span>
+                   <span class="text-xs opacity-90">คลิกที่นี่เพื่อดาวน์โหลดสินค้าของคุณ</span>
+                 </span>
+               </a>
+             </div>
+             
+             <div class="px-6 py-4 bg-blue-50 text-sm">
+               <div class="flex items-start">
+                 <div class="flex-shrink-0">
+                   <i class="fas fa-info-circle text-blue-500 mt-0.5"></i>
+                 </div>
+                 <div class="ml-3">
+                   <h4 class="font-medium text-blue-800">หมายเหตุ</h4>
+                   <p class="text-blue-700 mt-1">
+                     หากพบปัญหาในการดาวน์โหลดไฟล์ คุณสามารถล็อกอินเข้าสู่ระบบและดาวน์โหลดได้จากหน้า "บัญชีของฉัน" ในภายหลัง
+                   </p>
+                 </div>
+               </div>
+             </div>
+           </div>
+         </div>
+       </div>
+
+       <!-- หน้าล็อกอิน -->
+       <div x-show="currentPage === 'login'" x-transition>
+         <div class="max-w-md mx-auto">
+           <div class="text-center mb-6">
+             <div class="bg-primary-100 rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-3">
+               <i class="fas fa-lock text-primary-600 text-3xl"></i>
+             </div>
+             <h1 class="text-2xl font-bold text-gray-900">เข้าสู่ระบบ</h1>
+             <p class="text-gray-600">เข้าสู่ระบบเพื่อจัดการร้านค้าของคุณ</p>
+           </div>
+           
+           <div class="bg-white rounded-xl shadow-soft p-6">
+             <form @submit.prevent="login">
+               <div class="mb-4">
+                 <label for="loginEmail" class="block text-sm font-medium text-gray-700 mb-1">อีเมล</label>
+                 <div class="relative">
+                   <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                     <i class="fas fa-envelope text-gray-400"></i>
+                   </div>
+                   <input type="email" id="loginEmail" x-model="loginInfo.email" class="w-full pl-10 border border-gray-300 rounded-md py-3 px-4 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" required>
+                 </div>
+               </div>
+               <div class="mb-6">
+                 <label for="loginPassword" class="block text-sm font-medium text-gray-700 mb-1">รหัสผ่าน</label>
+                 <div class="relative">
+                   <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                     <i class="fas fa-key text-gray-400"></i>
+                   </div>
+                   <input 
+                     :type="showLoginPassword ? 'text' : 'password'" 
+                     id="loginPassword" 
+                     x-model="loginInfo.password" 
+                     class="w-full pl-10 pr-10 border border-gray-300 rounded-md py-3 px-4 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" 
+                     required
+                   >
+                   <!-- เพิ่มปุ่มแสดง/ซ่อนรหัสผ่าน -->
+                   <button 
+                     @click.prevent="showLoginPassword = !showLoginPassword" 
+                     type="button" 
+                     class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 transition-colors"
+                   >
+                     <i class="fas" :class="showLoginPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+                   </button>
+                 </div>
+               </div>
+               <button type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 px-4 rounded-md text-base font-medium transition-colors shadow-md">
+                 <i class="fas fa-sign-in-alt mr-2"></i> เข้าสู่ระบบ
+               </button>
+             </form>
+             
+             <!-- เพิ่มลิงก์ "ลืมรหัสผ่าน" -->
+             <div class="mt-4 text-center">
+               <a href="#" @click.prevent="showForgotPasswordModal()" class="text-primary-600 hover:text-primary-800 text-sm">
+                 <i class="fas fa-key mr-1"></i> ลืมรหัสผ่าน?
+               </a>
+             </div>
+           </div>
+         </div>
+       </div>
+
+       <!-- เพิ่ม Modal สำหรับลืมรหัสผ่าน -->
+       <div x-show="forgotPasswordModalOpen" class="fixed inset-0 overflow-y-auto z-50" x-cloak>
+         <div class="flex items-center justify-center min-h-screen p-4 text-center">
+           <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+             <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+           </div>
+           
+           <div class="bg-white rounded-xl overflow-hidden shadow-xl transform transition-all max-w-md w-full">
+             <div class="bg-primary-600 px-4 py-3 border-b flex justify-between items-center">
+               <h3 class="text-lg font-medium text-white">ลืมรหัสผ่าน</h3>
+               <button @click="forgotPasswordModalOpen = false" class="text-white hover:text-gray-200">
+                 <i class="fas fa-times"></i>
+               </button>
+             </div>
+             <div class="p-6">
+               <p class="text-sm text-gray-600 mb-4">กรุณากรอกอีเมลที่ใช้ลงทะเบียน ระบบจะส่งรหัสผ่านใหม่ไปยังอีเมลของคุณ</p>
+               <form @submit.prevent="resetPassword">
+                 <div class="mb-4">
+                   <label for="resetEmail" class="block text-sm font-medium text-gray-700 mb-1">อีเมล</label>
+                   <div class="relative">
+                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                       <i class="fas fa-envelope text-gray-400"></i>
+                     </div>
+                     <input type="email" id="resetEmail" x-model="forgotPasswordEmail" class="w-full pl-10 border border-gray-300 rounded-md py-3 px-4 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" required>
+                   </div>
+                 </div>
+                 <div class="flex justify-end space-x-3">
+                   <button type="button" @click="forgotPasswordModalOpen = false" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                     <i class="fas fa-times mr-2"></i> ยกเลิก
+                   </button>
+                   <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                     <i class="fas fa-paper-plane mr-2"></i> ส่งรหัสผ่าน
+                   </button>
+                 </div>
+               </form>
+             </div>
+           </div>
+         </div>
+       </div>
+       
+       <!-- หน้าแดชบอร์ดลูกค้า -->
+       <div x-show="currentPage === 'customerDashboard'" x-transition>
+         <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+           <!-- เมนูแดชบอร์ด -->
+           <div class="lg:col-span-1">
+             <div class="bg-white rounded-xl shadow-soft p-4 sticky top-20">
+               <div class="mb-4 p-2">
+                 <div class="flex items-center space-x-3">
+                   <div class="h-10 w-10 rounded-full bg-gradient-to-r from-primary-500 to-primary-700 text-white flex items-center justify-center">
+                     <span x-text="currentUser?.name?.charAt(0).toUpperCase() || 'U'"></span>
+                   </div>
+                   <div>
+                     <p class="text-sm font-medium text-gray-900" x-text="currentUser?.name || 'คุณลูกค้า'"></p>
+                     <p class="text-xs text-gray-500" x-text="currentUser?.email || ''"></p>
+                   </div>
+                 </div>
+               </div>
+               
+               <h2 class="text-xs uppercase tracking-wider text-gray-500 font-semibold px-3 mb-2">จัดการบัญชี</h2>
+               <nav class="space-y-1">
+                 <a href="#" @click.prevent="customerTab = 'overview'" class="flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    :class="customerTab === 'overview' ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-100'">
+                   <i class="fas fa-tachometer-alt w-5 mr-3 text-center" :class="customerTab === 'overview' ? 'text-primary-500' : 'text-gray-400'"></i>
+                   <span>ภาพรวม</span>
+                 </a>
+                 <a href="#" @click.prevent="customerTab = 'orders'" class="flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    :class="customerTab === 'orders' ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-100'">
+                   <i class="fas fa-shopping-cart w-5 mr-3 text-center" :class="customerTab === 'orders' ? 'text-primary-500' : 'text-gray-400'"></i>
+                   <span>คำสั่งซื้อของฉัน</span>
+                 </a>
+                 <a href="#" @click.prevent="customerTab = 'downloads'" class="flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    :class="customerTab === 'downloads' ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-100'">
+                   <i class="fas fa-download w-5 mr-3 text-center" :class="customerTab === 'downloads' ? 'text-primary-500' : 'text-gray-400'"></i>
+                   <span>ดาวน์โหลดสินค้า</span>
+                 </a>
+                 <a href="#" @click.prevent="customerTab = 'profile'" class="flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    :class="customerTab === 'profile' ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-100'">
+                   <i class="fas fa-user-cog w-5 mr-3 text-center" :class="customerTab === 'profile' ? 'text-primary-500' : 'text-gray-400'"></i>
+                   <span>ข้อมูลส่วนตัว</span>
+                 </a>
+               </nav>
+               
+               <div class="mt-6 pt-6 border-t">
+                 <a href="#" @click.prevent="showPage('home')" class="flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors">
+                   <i class="fas fa-store w-5 mr-3 text-center text-gray-400"></i>
+                   <span>กลับหน้าร้านค้า</span>
+                 </a>
+                 <a href="#" @click.prevent="logout()" class="flex items-center px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
+                   <i class="fas fa-sign-out-alt w-5 mr-3 text-center text-red-400"></i>
+                   <span>ออกจากระบบ</span>
+                 </a>
+               </div>
+             </div>
+           </div>
+           
+           <!-- เนื้อหาแดชบอร์ด -->
+           <div class="lg:col-span-4 space-y-6">
+             <!-- ภาพรวม -->
+             <div x-show="customerTab === 'overview'" x-transition>
+               <h2 class="text-xl font-bold text-gray-900 mb-6">ภาพรวมบัญชีของคุณ</h2>
+               
+               <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                 <div class="bg-white rounded-xl shadow-soft p-4 border-l-4 border-blue-500">
+                   <div class="flex items-center">
+                     <div class="p-3 rounded-full bg-blue-100 mr-4">
+                       <i class="fas fa-shopping-cart text-blue-500"></i>
+                     </div>
+                     <div>
+                       <p class="text-sm text-gray-500">คำสั่งซื้อทั้งหมด</p>
+                       <p class="text-xl font-bold text-gray-900" x-text="customerData?.totalOrders || 0"></p>
+                     </div>
+                   </div>
+                 </div>
+                 
+                 <div class="bg-white rounded-xl shadow-soft p-4 border-l-4 border-green-500">
+                   <div class="flex items-center">
+                     <div class="p-3 rounded-full bg-green-100 mr-4">
+                       <i class="fas fa-coins text-green-500"></i>
+                     </div>
+                     <div>
+                       <p class="text-sm text-gray-500">ยอดซื้อทั้งหมด</p>
+                       <p class="text-xl font-bold text-gray-900" x-text="'฿' + (customerData?.totalSpent || '0')"></p>
+                     </div>
+                   </div>
+                 </div>
+                 
+                 <div class="bg-white rounded-xl shadow-soft p-4 border-l-4 border-yellow-500">
+                   <div class="flex items-center">
+                     <div class="p-3 rounded-full bg-yellow-100 mr-4">
+                       <i class="fas fa-download text-yellow-500"></i>
+                     </div>
+                     <div>
+                       <p class="text-sm text-gray-500">ดาวน์โหลดที่ใช้ได้</p>
+                       <p class="text-xl font-bold text-gray-900" x-text="customerData?.activeDownloads || 0"></p>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+               
+               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+                   <div class="px-4 py-4 sm:px-6 flex justify-between items-center bg-gray-50 border-b">
+                     <h3 class="text-md font-medium text-gray-900 flex items-center">
+                       <i class="fas fa-shopping-cart text-primary-600 mr-2"></i> คำสั่งซื้อล่าสุด
+                     </h3>
+                     <a href="#" @click.prevent="customerTab = 'orders'" class="text-sm text-primary-600 hover:text-primary-700 flex items-center">
+                       ดูทั้งหมด <i class="fas fa-arrow-right ml-1"></i>
+                     </a>
+                   </div>
+                   <div class="p-4">
+                     <div x-show="customerData?.recentOrders?.length" class="space-y-3">
+                       <template x-for="order in customerData?.recentOrders" :key="order?.order_id">
+                         <div class="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50">
+                           <div>
+                             <p class="text-sm font-medium" x-text="'#' + order?.order_id?.substr(0, 8)"></p>
+                             <p class="text-xs text-gray-500" x-text="formatDate(order?.order_date)"></p>
+                           </div>
+                           <div class="text-right">
+                             <p class="text-sm font-bold text-primary-600" x-text="'฿' + parseFloat(order?.total_amount || 0).toFixed(2)"></p>
+                             <span 
+                               class="inline-flex px-2 text-xs leading-5 font-semibold rounded-full"
+                               :class="{
+                                 'bg-yellow-100 text-yellow-800': order?.status === 'pending',
+                                 'bg-blue-100 text-blue-800': order?.status === 'processing',
+                                 'bg-green-100 text-green-800': order?.status === 'completed',
+                                 'bg-red-100 text-red-800': order?.status === 'cancelled'
+                               }"
+                               x-text="getStatusText(order?.status)"></span>
+                           </div>
+                         </div>
+                       </template>
+                     </div>
+                     
+                     <div x-show="!customerData?.recentOrders?.length" class="text-center py-6">
+                       <i class="fas fa-shopping-cart text-gray-300 text-3xl mb-2"></i>
+                       <p class="text-gray-500">คุณยังไม่มีคำสั่งซื้อ</p>
+                       <a href="#" @click.prevent="showPage('products')" class="inline-block mt-3 text-primary-600 hover:text-primary-700">
+                         <i class="fas fa-shopping-bag mr-1"></i> เลือกซื้อสินค้าเลย
+                       </a>
+                     </div>
+                   </div>
+                 </div>
+                 
+                 <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+                   <div class="px-4 py-4 sm:px-6 flex justify-between items-center bg-gray-50 border-b">
+                     <h3 class="text-md font-medium text-gray-900 flex items-center">
+                       <i class="fas fa-download text-primary-600 mr-2"></i> ดาวน์โหลดล่าสุด
+                     </h3>
+                     <a href="#" @click.prevent="customerTab = 'downloads'" class="text-sm text-primary-600 hover:text-primary-700 flex items-center">
+                       ดูทั้งหมด <i class="fas fa-arrow-right ml-1"></i>
+                     </a>
+                   </div>
+                   <div class="p-4">
+                     <div x-show="customerData?.recentDownloads?.length" class="space-y-3">
+                       <template x-for="download in customerData?.recentDownloads" :key="download?.download_id">
+                         <div class="flex items-center p-3 border rounded-lg hover:bg-gray-50">
+                           <img :src="download?.product?.image || 'https://via.placeholder.com/50'" alt="Product" class="w-10 h-10 rounded object-cover mr-3">
+                           <div class="flex-1">
+                             <p class="text-sm font-medium line-clamp-1" x-text="download?.product?.name || 'สินค้าดิจิทัล'"></p>
+                             <p class="text-xs text-gray-500">รหัสดาวน์โหลด: <span class="font-mono" x-text="download?.token?.substr(0, 10) + '...'"></span></p>
+                           </div>
+                           <!-- แก้ไขปุ่มดาวน์โหลด -->
+                           <button 
+                             @click="downloadDirectly(download?.token)" 
+                             class="ml-2 p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-md transition-colors" 
+                             title="ดาวน์โหลด"
+                           >
+                             <i class="fas fa-download"></i>
+                           </button>
+                         </div>
+                       </template>
+                     </div>
+                     
+                     <div x-show="!customerData?.recentDownloads?.length" class="text-center py-6">
+                       <i class="fas fa-download text-gray-300 text-3xl mb-2"></i>
+                       <p class="text-gray-500">คุณยังไม่มีรายการดาวน์โหลด</p>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+             </div>
+             
+             <!-- คำสั่งซื้อของฉัน -->
+             <div x-show="customerTab === 'orders'" x-transition>
+               <h2 class="text-xl font-bold text-gray-900 mb-6">คำสั่งซื้อของฉัน</h2>
+               
+               <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+                 <div class="p-4 border-b bg-gray-50">
+                   <div class="relative">
+                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                       <i class="fas fa-search text-gray-400"></i>
+                     </div>
+                     <input type="text" x-model="searchOrderQuery" placeholder="ค้นหาคำสั่งซื้อ..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                   </div>
+                 </div>
+                 
+                 <div class="overflow-x-auto">
+                   <table class="min-w-full divide-y divide-gray-200">
+                     <thead class="bg-gray-50">
+                       <tr>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัสคำสั่งซื้อ</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ยอดเงิน</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ดำเนินการ</th>
+                       </tr>
+                     </thead>
+                     <tbody class="bg-white divide-y divide-gray-200">
+                       <template x-for="order in filteredCustomerOrders" :key="order?.order_id">
+                         <tr class="hover:bg-gray-50">
+                           <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900" x-text="'#' + order?.order_id?.substr(0, 8)"></td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500" x-text="formatDate(order?.order_date)"></td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900" x-text="'฿' + parseFloat(order?.total_amount || 0).toFixed(2)"></td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm">
+                             <span 
+                               class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                               :class="{
+                                 'bg-yellow-100 text-yellow-800': order?.status === 'pending',
+                                 'bg-blue-100 text-blue-800': order?.status === 'processing',
+                                 'bg-green-100 text-green-800': order?.status === 'completed',
+                                 'bg-red-100 text-red-800': order?.status === 'cancelled'
+                               }"
+                               x-text="getStatusText(order?.status)"></span>
+                           </td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm">
+                             <button @click="showCustomerOrderDetail(order?.order_id)" class="text-primary-600 hover:text-primary-800">
+                               <i class="fas fa-eye mr-1"></i> รายละเอียด
+                             </button>
+                           </td>
+                         </tr>
+                       </template>
+                       <tr x-show="!filteredCustomerOrders.length">
+                         <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-500">
+                           <i class="fas fa-shopping-cart text-gray-300 text-3xl mb-2"></i>
+                           <p>ไม่พบคำสั่งซื้อ</p>
+                         </td>
+                       </tr>
+                     </tbody>
+                   </table>
+                 </div>
+               </div>
+             </div>
+             
+             <!-- ดาวน์โหลดสินค้า -->
+             <div x-show="customerTab === 'downloads'" x-transition>
+               <h2 class="text-xl font-bold text-gray-900 mb-6">ดาวน์โหลดสินค้า</h2>
+               
+               <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+                 <div class="p-4 border-b bg-gray-50">
+                   <div class="relative">
+                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                       <i class="fas fa-search text-gray-400"></i>
+                     </div>
+                     <input type="text" x-model="searchDownloadQuery" placeholder="ค้นหาสินค้า..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                   </div>
+                 </div>
+                 
+                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+                   <template x-for="download in filteredCustomerDownloads" :key="download?.download_id">
+                     <div class="bg-white border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                       <div class="h-40 overflow-hidden bg-gray-100">
+                         <img :src="download?.product?.image || 'https://via.placeholder.com/300x200?text=No+Image'" 
+                              :alt="download?.product?.name" 
+                              class="w-full h-full object-cover">
+                       </div>
+                       <div class="p-4">
+                         <h3 class="text-lg font-semibold text-gray-900 mb-1 line-clamp-1" x-text="download?.product?.name || 'สินค้าดิจิทัล'"></h3>
+                         <p class="text-sm text-gray-500 mb-3 line-clamp-2" x-text="download?.product?.description || 'ไม่มีคำอธิบาย'"></p>
+                         
+                         <div class="bg-gray-50 p-3 rounded-md mb-3">
+                           <p class="text-xs text-gray-600 mb-1">รหัสดาวน์โหลด:</p>
+                           <div class="flex items-center justify-between">
+                             <code class="text-xs bg-gray-100 p-1 rounded font-mono" x-text="download?.token"></code>
+                             <button @click="copyToClipboard(download?.token)" class="text-gray-500 hover:text-primary-600 text-sm">
+                               <i class="fas fa-copy"></i>
+                             </button>
+                           </div>
+                         </div>
+                         
+                         <div class="text-center">
+                           <button 
+                             @click="downloadDirectly(download?.token)" 
+                             class="w-full inline-block bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                           >
+                             <i class="fas fa-download mr-2"></i> ดาวน์โหลด
+                           </button>
+                         </div>
+                       </div>
+                     </div>
+                   </template>
+                   
+                   <div x-show="!filteredCustomerDownloads.length" class="col-span-full text-center py-10">
+                     <i class="fas fa-download text-gray-300 text-5xl mb-3"></i>
+                     <p class="text-gray-500 mb-2">ไม่พบรายการดาวน์โหลด</p>
+                     <a href="#" @click.prevent="showPage('products')" class="text-primary-600 hover:text-primary-700">
+                       <i class="fas fa-shopping-bag mr-1"></i> เลือกซื้อสินค้าเลย
+                     </a>
+                   </div>
+                 </div>
+               </div>
+             </div>
+             
+             <!-- ข้อมูลส่วนตัว -->
+             <div x-show="customerTab === 'profile'" x-transition>
+               <h2 class="text-xl font-bold text-gray-900 mb-6">ข้อมูลส่วนตัว</h2>
+               
+               <div class="bg-white rounded-xl shadow-soft p-6">
+                 <form @submit.prevent="updateCustomerProfile">
+                   <div class="space-y-5">
+                     <div>
+                       <label for="profileName" class="block text-sm font-medium text-gray-700 mb-1">ชื่อ-นามสกุล</label>
+                       <input type="text" id="profileName" x-model="profileForm.name" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                     </div>
+                     
+                     <div>
+                       <label for="profileEmail" class="block text-sm font-medium text-gray-700 mb-1">อีเมล</label>
+                       <input type="email" id="profileEmail" x-model="profileForm.email" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                     </div>
+                     
+                     <div>
+                       <label for="profilePhone" class="block text-sm font-medium text-gray-700 mb-1">เบอร์โทรศัพท์</label>
+                       <input type="tel" id="profilePhone" x-model="profileForm.phone" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                     </div>
+                     
+                     <div class="border-t pt-5 mt-6">
+                       <h3 class="text-md font-medium text-gray-900 mb-3">เปลี่ยนรหัสผ่าน <span class="text-sm font-normal text-gray-500">(เว้นว่างไว้ถ้าไม่ต้องการเปลี่ยนรหัสผ่าน)</span></h3>
+                       
+                       <div class="space-y-4">
+                         <div>
+                           <label for="currentPassword" class="block text-sm font-medium text-gray-700 mb-1">รหัสผ่านปัจจุบัน</label>
+                           <div class="relative">
+                             <input 
+                               :type="showCurrentPassword ? 'text' : 'password'" 
+                               id="currentPassword" 
+                               x-model="profileForm.currentPassword" 
+                               class="w-full border border-gray-300 rounded-md py-2 pl-3 pr-10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                             >
+                             <button 
+                               @click="showCurrentPassword = !showCurrentPassword" 
+                               type="button" 
+                               class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700"
+                             >
+                               <i class="fas" :class="showCurrentPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+                             </button>
+                           </div>
+                         </div>
+                         
+                         <div>
+                           <label for="newPassword" class="block text-sm font-medium text-gray-700 mb-1">รหัสผ่านใหม่</label>
+                           <div class="relative">
+                             <input 
+                               :type="showNewPassword ? 'text' : 'password'" 
+                               id="newPassword" 
+                               x-model="profileForm.newPassword" 
+                               class="w-full border border-gray-300 rounded-md py-2 pl-3 pr-10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                             >
+                             <button 
+                               @click="showNewPassword = !showNewPassword" 
+                               type="button" 
+                               class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700"
+                             >
+                               <i class="fas" :class="showNewPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+                             </button>
+                           </div>
+                           <p class="text-xs text-gray-500 mt-1">รหัสผ่านควรมีอย่างน้อย 6 ตัวอักษร</p>
+                         </div>
+                         
+                         <div>
+                           <label for="confirmNewPassword" class="block text-sm font-medium text-gray-700 mb-1">ยืนยันรหัสผ่านใหม่</label>
+                           <div class="relative">
+                             <input 
+                               :type="showConfirmNewPassword ? 'text' : 'password'" 
+                               id="confirmNewPassword" 
+                               x-model="profileForm.confirmNewPassword" 
+                               class="w-full border border-gray-300 rounded-md py-2 pl-3 pr-10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                             >
+                             <button 
+                               @click="showConfirmNewPassword = !showConfirmNewPassword" 
+                               type="button" 
+                               class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700"
+                             >
+                               <i class="fas" :class="showConfirmNewPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+                             </button>
+                           </div>
+                         </div>
+                       </div>
+                     </div>
+                     
+                     <div class="pt-5 flex justify-end">
+                       <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2 rounded-md text-base font-medium transition-colors">
+                         <i class="fas fa-save mr-2"></i>บันทึกข้อมูล
+                       </button>
+                     </div>
+                   </div>
+                 </form>
+               </div>
+             </div>
+           </div>
+         </div>
+       </div>
+       
+       <!-- หน้าแดชบอร์ด -->
+       <div x-show="currentPage === 'dashboard'" x-transition>
+         <div class="grid grid-cols-1 lg:grid-cols-6 gap-6">
+           <!-- เมนูแดชบอร์ด -->
+           <div class="lg:col-span-1">
+             <div class="bg-white rounded-xl shadow-soft p-4 sticky top-20">
+               <div class="mb-4 p-2">
+                 <div class="flex items-center space-x-3">
+                   <div class="h-10 w-10 rounded-full bg-gradient-to-r from-primary-500 to-primary-700 text-white flex items-center justify-center">
+                     <span x-text="currentUser?.name?.charAt(0).toUpperCase() || 'A'"></span>
+                   </div>
+                   <div>
+                     <p class="text-sm font-medium text-gray-900" x-text="currentUser?.name || 'Admin'"></p>
+                     <p class="text-xs text-gray-500" x-text="currentUser?.email || ''"></p>
+                   </div>
+                 </div>
+               </div>
+               
+               <h2 class="text-xs uppercase tracking-wider text-gray-500 font-semibold px-3 mb-2">จัดการร้านค้า</h2>
+               <nav class="space-y-1">
+                 <a href="#" @click.prevent="dashboardTab = 'overview'" class="flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    :class="dashboardTab === 'overview' ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-100'">
+                   <i class="fas fa-tachometer-alt w-5 mr-3 text-center" :class="dashboardTab === 'overview' ? 'text-primary-500' : 'text-gray-400'"></i>
+                   <span>ภาพรวม</span>
+                 </a>
+                 <a href="#" @click.prevent="dashboardTab = 'products'" class="flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    :class="dashboardTab === 'products' ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-100'">
+                   <i class="fas fa-box w-5 mr-3 text-center" :class="dashboardTab === 'products' ? 'text-primary-500' : 'text-gray-400'"></i>
+                   <span>จัดการสินค้า</span>
+                 </a>
+                 <a href="#" @click.prevent="dashboardTab = 'orders'" class="flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    :class="dashboardTab === 'orders' ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-100'">
+                   <i class="fas fa-shopping-cart w-5 mr-3 text-center" :class="dashboardTab === 'orders' ? 'text-primary-500' : 'text-gray-400'"></i>
+                   <span>คำสั่งซื้อ</span>
+                 </a>
+                 <a href="#" @click.prevent="dashboardTab = 'payments'" class="flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    :class="dashboardTab === 'payments' ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-100'">
+                   <i class="fas fa-credit-card w-5 mr-3 text-center" :class="dashboardTab === 'payments' ? 'text-primary-500' : 'text-gray-400'"></i>
+                   <span>การชำระเงิน</span>
+                 </a>
+                 <a href="#" @click.prevent="dashboardTab = 'downloads'" class="flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    :class="dashboardTab === 'downloads' ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-100'">
+                   <i class="fas fa-download w-5 mr-3 text-center" :class="dashboardTab === 'downloads' ? 'text-primary-500' : 'text-gray-400'"></i>
+                   <span>การดาวน์โหลด</span>
+                 </a>
+               </nav>
+               
+               <h2 class="text-xs uppercase tracking-wider text-gray-500 font-semibold px-3 mb-2 mt-6">การตั้งค่า</h2>
+               <nav class="space-y-1">
+                 <a href="#" @click="dashboardTab = 'users'" class="flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    :class="dashboardTab === 'users' ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-100'">
+                   <i class="fas fa-users w-5 mr-3 text-center" :class="dashboardTab === 'users' ? 'text-primary-500' : 'text-gray-400'"></i>
+                   <span>ผู้ใช้งาน</span>
+                 </a>
+                 <a href="#" @click.prevent="dashboardTab = 'settings'" class="flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    :class="dashboardTab === 'settings' ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-100'">
+                   <i class="fas fa-cog w-5 mr-3 text-center" :class="dashboardTab === 'settings' ? 'text-primary-500' : 'text-gray-400'"></i>
+                   <span>ตั้งค่าระบบ</span>
+                 </a>
+               </nav>
+               
+               <div class="mt-6 pt-6 border-t">
+                 <a href="#" @click.prevent="showPage('home')" class="flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors">
+                   <i class="fas fa-store w-5 mr-3 text-center text-gray-400"></i>
+                   <span>กลับหน้าร้านค้า</span>
+                 </a>
+                 <a href="#" @click.prevent="logout()" class="flex items-center px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
+                   <i class="fas fa-sign-out-alt w-5 mr-3 text-center text-red-400"></i>
+                   <span>ออกจากระบบ</span>
+                 </a>
+               </div>
+             </div>
+           </div>
+           
+           <!-- เนื้อหาแดชบอร์ด -->
+           <div class="lg:col-span-5 space-y-6">
+             <!-- ส่วนเนื้อหาแดชบอร์ด จาก paste.txt -->
+             <!-- ภาพรวม -->
+             <div x-show="dashboardTab === 'overview'" x-transition>
+               <h2 class="text-xl font-bold text-gray-900 mb-6">ภาพรวมร้านค้า</h2>
+               
+               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                 <div class="bg-white rounded-xl shadow-soft p-4 border-l-4 border-blue-500">
+                   <div class="flex items-center">
+                     <div class="p-3 rounded-full bg-blue-100 mr-4">
+                       <i class="fas fa-shopping-cart text-blue-500"></i>
+                     </div>
+                     <div>
+                       <p class="text-sm text-gray-500">คำสั่งซื้อทั้งหมด</p>
+                       <p class="text-xl font-bold text-gray-900" x-text="dashboardData?.totalOrders || 0"></p>
+                     </div>
+                   </div>
+                 </div>
+                 
+                 <div class="bg-white rounded-xl shadow-soft p-4 border-l-4 border-green-500">
+                   <div class="flex items-center">
+                     <div class="p-3 rounded-full bg-green-100 mr-4">
+                       <i class="fas fa-coins text-green-500"></i>
+                     </div>
+                     <div>
+                       <p class="text-sm text-gray-500">รายได้ทั้งหมด</p>
+                       <p class="text-xl font-bold text-gray-900" x-text="'฿' + (dashboardData?.totalRevenue || '0')"></p>
+                     </div>
+                   </div>
+                 </div>
+                 
+                 <div class="bg-white rounded-xl shadow-soft p-4 border-l-4 border-indigo-500">
+                   <div class="flex items-center">
+                     <div class="p-3 rounded-full bg-indigo-100 mr-4">
+                       <i class="fas fa-box text-indigo-500"></i>
+                     </div>
+                     <div>
+                       <p class="text-sm text-gray-500">สินค้าทั้งหมด</p>
+                       <p class="text-xl font-bold text-gray-900" x-text="dashboardData?.totalProducts || 0"></p>
+                     </div>
+                   </div>
+                 </div>
+                 
+                 <div class="bg-white rounded-xl shadow-soft p-4 border-l-4 border-yellow-500">
+                   <div class="flex items-center">
+                     <div class="p-3 rounded-full bg-yellow-100 mr-4">
+                       <i class="fas fa-download text-yellow-500"></i>
+                     </div>
+                     <div>
+                       <p class="text-sm text-gray-500">การดาวน์โหลดทั้งหมด</p>
+                       <p class="text-xl font-bold text-gray-900" x-text="dashboardData?.totalDownloads || 0"></p>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+               
+               <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                 <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+                   <div class="px-4 py-4 sm:px-6 flex justify-between items-center bg-gray-50 border-b">
+                     <h3 class="text-md font-medium text-gray-900 flex items-center">
+                       <i class="fas fa-shopping-cart text-primary-600 mr-2"></i> คำสั่งซื้อล่าสุด
+                     </h3>
+                     <a href="#" @click.prevent="dashboardTab = 'orders'" class="text-sm text-primary-600 hover:text-primary-700 flex items-center">
+                       ดูทั้งหมด <i class="fas fa-arrow-right ml-1"></i>
+                     </a>
+                   </div>
+                   <div class="p-0 overflow-x-auto">
+                     <table class="min-w-full divide-y divide-gray-200">
+                       <thead class="bg-gray-50">
+                         <tr>
+                           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัส</th>
+                           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ลูกค้า</th>
+                           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวนเงิน</th>
+                           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
+                         </tr>
+                       </thead>
+                       <tbody class="bg-white divide-y divide-gray-200">
+                         <template x-for="order in dashboardData?.recentOrders || []" :key="order?.order_id">
+                           <tr class="hover:bg-gray-50">
+                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900" x-text="order?.order_id?.substring(0, 8) + '...'"></td>
+                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900" x-text="order?.customer?.name || '-'"></td>
+                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900" x-text="'฿' + parseFloat(order?.total_amount || 0).toFixed(2)"></td>
+                             <td class="px-4 py-3 whitespace-nowrap text-sm">
+                               <span 
+                                 class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                                 :class="{
+                                   'bg-yellow-100 text-yellow-800': order?.status === 'pending',
+                                   'bg-blue-100 text-blue-800': order?.status === 'processing',
+                                   'bg-green-100 text-green-800': order?.status === 'completed',
+                                   'bg-red-100 text-red-800': order?.status === 'cancelled'
+                                 }"
+                                 x-text="getStatusText(order?.status)"></span>
+                             </td>
+                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500" x-text="formatDate(order?.order_date)"></td>
+                           </tr>
+                         </template>
+                         <tr x-show="!dashboardData?.recentOrders || dashboardData.recentOrders.length === 0">
+                           <td colspan="5" class="px-4 py-6 text-center text-sm text-gray-500">
+                             <i class="fas fa-inbox text-gray-300 text-3xl mb-2"></i>
+                             <p>ไม่มีคำสั่งซื้อ</p>
+                           </td>
+                         </tr>
+                       </tbody>
+                     </table>
+                   </div>
+                 </div>
+                 
+                 <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+                   <div class="px-4 py-4 sm:px-6 flex justify-between items-center bg-gray-50 border-b">
+                     <h3 class="text-md font-medium text-gray-900 flex items-center">
+                       <i class="fas fa-credit-card text-primary-600 mr-2"></i> การชำระเงินล่าสุด
+                     </h3>
+                     <a href="#" @click.prevent="dashboardTab = 'payments'" class="text-sm text-primary-600 hover:text-primary-700 flex items-center">
+                       ดูทั้งหมด <i class="fas fa-arrow-right ml-1"></i>
+                     </a>
+                   </div>
+                   <div class="p-0 overflow-x-auto">
+                     <table class="min-w-full divide-y divide-gray-200">
+                       <thead class="bg-gray-50">
+                         <tr>
+                           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัส</th>
+                           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คำสั่งซื้อ</th>
+                           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวนเงิน</th>
+                           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
+                         </tr>
+                       </thead>
+                       <tbody class="bg-white divide-y divide-gray-200">
+                         <template x-for="payment in dashboardData?.recentPayments || []" :key="payment?.payment_id">
+                           <tr class="hover:bg-gray-50">
+                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900" x-text="payment?.payment_id?.substring(0, 8) + '...'"></td>
+                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900" x-text="payment?.order_id?.substring(0, 8) + '...'"></td>
+                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900" x-text="'฿' + parseFloat(payment?.amount || 0).toFixed(2)"></td>
+                             <td class="px-4 py-3 whitespace-nowrap text-sm">
+                               <span 
+                                 class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                                 :class="{
+                                   'bg-yellow-100 text-yellow-800': payment?.status === 'pending',
+                                   'bg-green-100 text-green-800': payment?.status === 'completed',
+                                   'bg-red-100 text-red-800': payment?.status === 'cancelled'
+                                 }"
+                                 x-text="getStatusText(payment?.status)"></span>
+                             </td>
+                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500" x-text="formatDate(payment?.payment_date)"></td>
+                           </tr>
+                         </template>
+                         <tr x-show="!dashboardData?.recentPayments || dashboardData.recentPayments.length === 0">
+                           <td colspan="5" class="px-4 py-6 text-center text-sm text-gray-500">
+                             <i class="fas fa-credit-card text-gray-300 text-3xl mb-2"></i>
+                             <p>ไม่มีการชำระเงิน</p>
+                           </td>
+                         </tr>
+                       </tbody>
+                     </table>
+                   </div>
+                 </div>
+               </div>
+             </div>
+             
+             <!-- ส่วนในหน้าแดชบอร์ด - จัดการสินค้า -->
+             <div x-show="dashboardTab === 'products'" x-cloak x-transition>
+               <!-- จัดการสินค้า -->
+               <div class="flex justify-between items-center mb-6">
+                 <h2 class="text-xl font-bold text-gray-900 flex items-center">
+                   <i class="fas fa-box text-primary-600 mr-2"></i> จัดการสินค้า
+                 </h2>
+                 <button @click="showProductModal()" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center shadow-md">
+                   <i class="fas fa-plus mr-2"></i>เพิ่มสินค้าใหม่
+                 </button>
+               </div>
+               
+               <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+                 <div class="p-4 border-b bg-gray-50">
+                   <div class="relative">
+                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                       <i class="fas fa-search text-gray-400"></i>
+                     </div>
+                     <input type="text" x-model="searchQuery" placeholder="ค้นหาสินค้า..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                   </div>
+                 </div>
+                 <div class="overflow-x-auto">
+                   <table class="min-w-full divide-y divide-gray-200">
+                     <thead class="bg-gray-50">
+                       <tr>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รูปภาพ</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อสินค้า</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ราคา</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">หมวดหมู่</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การจัดการ</th>
+                       </tr>
+                     </thead>
+                     <tbody class="divide-y divide-gray-200">
+                       <template x-for="product in products" :key="product?.product_id">
+                         <tr class="hover:bg-gray-50">
+                           <td class="px-4 py-3 whitespace-nowrap">
+                             <img :src="product?.image || 'https://via.placeholder.com/50x50?text=No+Image'" :alt="product?.name" class="h-12 w-12 object-cover rounded-md">
+                           </td>
+                           <td class="px-4 py-3">
+                             <div class="text-sm font-medium text-gray-900 truncate max-w-xs" x-text="product?.name || '-'"></div>
+                             <div x-show="product?.demo_link" class="flex items-center mt-1">
+                               
+                             </div>
+                           </td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium" x-text="'฿' + parseFloat(product?.price || 0).toFixed(2)"></td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900" x-text="product?.category || '-'"></td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm">
+                             <span 
+                               class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                               :class="{
+                                 'bg-green-100 text-green-800': product?.status === 'active',
+                                 'bg-red-100 text-red-800': product?.status === 'inactive'
+                               }"
+                               x-text="getStatusText(product?.status)"></span>
+                           </td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                             <div class="flex space-x-3">
+                               <button @click="showProductModal(product)" class="text-primary-600 hover:text-primary-800 p-1" title="แก้ไขสินค้า">
+                                 <i class="fas fa-edit"></i>
+                               </button>
+                               <button @click="showProductDetail(product)" class="text-indigo-600 hover:text-indigo-800 p-1" title="ดูรายละเอียด">
+                                 <i class="fas fa-eye"></i>
+                               </button>
+                               <button @click="deleteProduct(product?.product_id)" class="text-red-600 hover:text-red-800 p-1" title="ลบสินค้า">
+                                 <i class="fas fa-trash"></i>
+                               </button>
+                             </div>
+                           </td>
+                         </tr>
+                       </template>
+                       <tr x-show="products.length === 0">
+                         <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500">
+                           <i class="fas fa-box text-gray-300 text-3xl mb-2"></i>
+                           <p>ไม่มีสินค้า</p>
+                         </td>
+                       </tr>
+                     </tbody>
+                   </table>
+                 </div>
+               </div>
+             </div>
+
+             <!-- Product Detail Modal สำหรับแดชบอร์ด -->
+             <div x-show="dashboardProductDetailModal" class="fixed inset-0 overflow-y-auto z-50" x-cloak>
+               <div class="flex items-center justify-center min-h-screen p-4 text-center">
+                 <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+                   <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+                 </div>
+                 
+                 <div class="bg-white rounded-xl overflow-hidden shadow-xl transform transition-all max-w-3xl w-full">
+                   <div class="bg-primary-600 px-4 py-3 border-b flex justify-between items-center">
+                     <h3 class="text-lg font-medium text-white flex items-center">
+                       <i class="fas fa-box mr-2"></i> รายละเอียดสินค้า
+                     </h3>
+                     <button @click="dashboardProductDetailModal = false" class="text-white hover:text-gray-200">
+                       <i class="fas fa-times"></i>
+                     </button>
+                   </div>
+                   
+                   <div class="p-6" x-show="currentProduct !== null">
+                     <div class="flex flex-col md:flex-row gap-6">
+                       <!-- รูปภาพสินค้า -->
+                       <div class="md:w-1/3">
+                         <img :src="currentProduct?.image || 'https://via.placeholder.com/300x300?text=No+Image'" :alt="currentProduct?.name" 
+                             class="w-full rounded-lg object-cover h-60 cursor-pointer" 
+                             @click="previewProductImage(currentProduct?.image)">
+                             
+                         <div class="mt-4">
+                           <div class="flex items-center justify-between mb-2">
+                             <span class="text-sm font-medium text-gray-700">สถานะ:</span>
+                             <span 
+                               class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                               :class="{
+                                 'bg-green-100 text-green-800': currentProduct?.status === 'active',
+                                 'bg-red-100 text-red-800': currentProduct?.status === 'inactive'
+                               }"
+                               x-text="getStatusText(currentProduct?.status)"></span>
+                           </div>
+                           
+                           <div class="flex items-center justify-between">
+                             <span class="text-sm font-medium text-gray-700">ราคา:</span>
+                             <span class="font-bold text-primary-600" x-text="'฿' + parseFloat(currentProduct?.price || 0).toFixed(2)"></span>
+                           </div>
+                           
+                           <div x-show="currentProduct?.demo_link" class="mt-3 pt-3 border-t">
+                             <a :href="currentProduct?.demo_link" target="_blank" 
+                               class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md text-sm font-medium transition-colors flex items-center justify-center">
+                               <i class="fas fa-desktop mr-2"></i> ดูตัวอย่างระบบ
+                             </a>
+                           </div>
+                         </div>
+                       </div>
+                       
+                       <!-- ข้อมูลสินค้า -->
+                       <div class="md:w-2/3">
+                         <h2 class="text-xl font-bold text-gray-900 mb-3" x-text="currentProduct?.name || ''"></h2>
+                         
+                         <div class="mb-3 flex items-center">
+                           <span class="text-sm font-medium text-gray-700 mr-2">หมวดหมู่:</span>
+                           <span class="bg-gray-100 text-gray-800 text-xs font-medium px-2 py-1 rounded" x-text="currentProduct?.category || '-'"></span>
+                         </div>
+                         
+                         <div class="mb-4">
+                           <h3 class="text-sm font-medium text-gray-700 mb-2">ไฟล์สินค้า:</h3>
+                           <div class="bg-gray-50 p-3 rounded-lg flex items-center">
+                             <i class="fas fa-file-alt text-primary-500 text-lg mr-2"></i>
+                             <span class="text-sm text-gray-800" x-text="currentProduct?.file_name || 'ไม่มีข้อมูลไฟล์'"></span>
+                           </div>
+                         </div>
+                         
+                         <div>
+                           <h3 class="text-sm font-medium text-gray-700 mb-2">รายละเอียด:</h3>
+                           <div class="bg-gray-50 p-3 rounded-lg max-h-60 overflow-y-auto prose prose-sm">
+                             <div x-html="formatDescription(currentProduct?.description || 'ไม่มีคำอธิบายสินค้า')" class="whitespace-pre-line"></div>
+                           </div>
+                         </div>
+                         
+                       </div>
+                     </div>
+                   </div>
+                   
+                   <div class="bg-gray-50 px-4 py-3 flex justify-end">
+                     <button @click="dashboardProductDetailModal = false" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                       <i class="fas fa-times mr-2"></i> ปิด
+                     </button>
+                   </div>
+                 </div>
+               </div>
+             </div>
+
+             <div x-show="dashboardTab === 'orders'" x-cloak x-transition>
+               <!-- จัดการคำสั่งซื้อ -->
+               <h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                 <i class="fas fa-shopping-cart text-primary-600 mr-2"></i> จัดการคำสั่งซื้อ
+               </h2>
+               
+               <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+                 <div class="p-4 border-b bg-gray-50">
+                   <div class="relative">
+                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                       <i class="fas fa-search text-gray-400"></i>
+                     </div>
+                     <input type="text" x-model="searchQuery" placeholder="ค้นหาคำสั่งซื้อ..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                   </div>
+                 </div>
+                 <div class="overflow-x-auto">
+                   <table class="min-w-full divide-y divide-gray-200">
+                     <thead class="bg-gray-50">
+                       <tr>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัส</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ลูกค้า</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวนเงิน</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การจัดการ</th>
+                       </tr>
+                     </thead>
+                     <tbody class="bg-white divide-y divide-gray-200">
+                       <template x-for="order in orders" :key="order?.order_id">
+                         <tr class="hover:bg-gray-50">
+                           <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium" x-text="order?.order_id?.substring(0, 8) + '...'"></td>
+                           <td class="px-4 py-3 whitespace-nowrap">
+                             <div class="text-sm text-gray-900" x-text="order?.customer?.name || '-'"></div>
+                             <div class="text-xs text-gray-500" x-text="order?.customer?.email || '-'"></div>
+                           </td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium" x-text="'฿' + parseFloat(order?.total_amount || 0).toFixed(2)"></td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm">
+                             <span 
+                               class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                               :class="{
+                                 'bg-yellow-100 text-yellow-800': order?.status === 'pending',
+                                 'bg-blue-100 text-blue-800': order?.status === 'processing',
+                                 'bg-green-100 text-green-800': order?.status === 'completed',
+                                 'bg-red-100 text-red-800': order?.status === 'cancelled'
+                               }"
+                               x-text="getStatusText(order?.status)"></span>
+                           </td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500" x-text="formatDate(order?.order_date)"></td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                             <div class="flex space-x-2">
+                               <button @click="showOrderDetail(order?.order_id)" class="text-primary-600 hover:text-primary-800 p-1" title="ดูรายละเอียด">
+                                 <i class="fas fa-eye"></i>
+                               </button>
+                               <button @click="showUpdateOrderStatus(order?.order_id)" class="text-yellow-600 hover:text-yellow-800 p-1" title="อัพเดทสถานะ">
+                                 <i class="fas fa-edit"></i>
+                               </button>
+                             </div>
+                           </td>
+                         </tr>
+                       </template>
+                       <tr x-show="orders.length === 0">
+                         <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500">
+                           <i class="fas fa-shopping-cart text-gray-300 text-3xl mb-2"></i>
+                           <p>ไม่มีคำสั่งซื้อ</p>
+                         </td>
+                       </tr>
+                     </tbody>
+                   </table>
+                 </div>
+               </div>
+             </div>
+             
+             <!-- ส่วนในหน้าแดชบอร์ด - จัดการการชำระเงิน -->
+<div x-show="dashboardTab === 'payments'" x-cloak x-transition>
+  <!-- จัดการการชำระเงิน -->
+  <h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center">
+    <i class="fas fa-credit-card text-primary-600 mr-2"></i> จัดการการชำระเงิน
+  </h2>
+  
+  <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+    <div class="p-4 border-b bg-gray-50">
+      <div class="relative">
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <i class="fas fa-search text-gray-400"></i>
+        </div>
+        <input type="text" x-model="searchQuery" placeholder="ค้นหาการชำระเงิน..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+      </div>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัส</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คำสั่งซื้อ</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวนเงิน</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การจัดการ</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <template x-for="payment in payments" :key="payment?.payment_id">
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium" x-text="payment?.payment_id?.substring(0, 8) + '...'"></td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900" x-text="payment?.order_id?.substring(0, 8) + '...'"></td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium" x-text="'฿' + parseFloat(payment?.amount || 0).toFixed(2)"></td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm">
+                <span 
+                  class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                  :class="{
+                    'bg-yellow-100 text-yellow-800': payment?.status === 'pending',
+                    'bg-green-100 text-green-800': payment?.status === 'completed',
+                    'bg-red-100 text-red-800': payment?.status === 'rejected',
+                    'bg-gray-100 text-gray-800': payment?.status === 'cancelled'
+                  }"
+                  x-text="getStatusText(payment?.status)"></span>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500" x-text="formatDate(payment?.payment_date)"></td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                <div class="flex space-x-2">
+                  <button @click="showPaymentDetail(payment?.payment_id)" class="text-primary-600 hover:text-primary-800 p-1" title="ดูรายละเอียด">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  
+                  <!-- แสดงปุ่มยืนยันเฉพาะเมื่อสถานะเป็น pending -->
+                  <button x-show="payment?.status === 'pending'" @click="approvePayment(payment?.payment_id)" class="text-green-600 hover:text-green-800 p-1" title="อนุมัติการชำระเงิน">
+                    <i class="fas fa-check"></i>
+                  </button>
+                  
+                  <!-- แสดงปุ่มปฏิเสธเฉพาะเมื่อสถานะเป็น pending -->
+                  <button x-show="payment?.status === 'pending'" @click="rejectPayment(payment?.payment_id)" class="text-red-600 hover:text-red-800 p-1" title="ปฏิเสธการชำระเงิน">
+                    <i class="fas fa-times"></i>
+                  </button>
+                  
+                  <!-- แสดงปุ่มยกเลิกเฉพาะเมื่อสถานะเป็น completed -->
+                  <button x-show="payment?.status === 'completed'" @click="cancelPayment(payment?.payment_id)" class="text-yellow-600 hover:text-yellow-800 p-1" title="ยกเลิกการชำระเงิน">
+                    <i class="fas fa-ban"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </template>
+          <tr x-show="payments.length === 0">
+            <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500">
+              <i class="fas fa-credit-card text-gray-300 text-3xl mb-2"></i>
+              <p>ไม่มีการชำระเงิน</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+             
+             <div x-show="dashboardTab === 'downloads'" x-cloak x-transition>
+               <!-- จัดการการดาวน์โหลด -->
+               <h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                 <i class="fas fa-download text-primary-600 mr-2"></i> จัดการการดาวน์โหลด
+               </h2>
+               
+               <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+                 <div class="p-4 border-b bg-gray-50">
+                   <div class="relative">
+                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                       <i class="fas fa-search text-gray-400"></i>
+                     </div>
+                     <input type="text" x-model="searchQuery" placeholder="ค้นหาการดาวน์โหลด..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                   </div>
+                 </div>
+                 <div class="overflow-x-auto">
+                   <table class="min-w-full divide-y divide-gray-200">
+                     <!-- แก้ไขส่วนของหัวตาราง -->
+                     <thead class="bg-gray-50">
+                       <tr>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัส</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คำสั่งซื้อ</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สินค้า</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                       </tr>
+                     </thead>
+                     <tbody class="bg-white divide-y divide-gray-200">
+                       <template x-for="download in downloads" :key="download?.download_id">
+                         <tr class="hover:bg-gray-50">
+                           <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium" x-text="download?.download_id?.substring(0, 8) + '...'"></td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900" x-text="download?.order_id?.substring(0, 8) + '...'"></td>
+                           <td class="px-4 py-3 text-sm text-gray-900">
+                             <div class="flex items-center">
+                               <img :src="download?.product?.image || 'https://via.placeholder.com/40'" class="h-8 w-8 rounded-md object-cover mr-2" />
+                               <div>
+                                 <div x-text="download?.product?.name || 'ไม่พบชื่อสินค้า'" class="font-medium"></div>
+                                 <div x-text="download?.product?.category || ''" class="text-xs text-gray-500"></div>
+                               </div>
+                             </div>
+                           </td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm">
+                             <span 
+                               class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                               :class="{
+                                 'bg-green-100 text-green-800': download?.status === 'active',
+                                 'bg-red-100 text-red-800': download?.status !== 'active'
+                               }"
+                               x-text="download?.status === 'active' ? 'ใช้งานได้' : 'ปิดใช้งาน'"></span>
+                           </td>
+                         </tr>
+                       </template>
+                       <tr x-show="downloads.length === 0">
+                         <td colspan="4" class="px-4 py-8 text-center text-sm text-gray-500">
+                           <i class="fas fa-download text-gray-300 text-3xl mb-2"></i>
+                           <p>ไม่มีการดาวน์โหลด</p>
+                         </td>
+                       </tr>
+                     </tbody>
+                   </table>
+                 </div>
+               </div>
+             </div>
+             
+             <div x-show="dashboardTab === 'users'" x-cloak x-transition>
+               <!-- จัดการผู้ใช้ -->
+               <div class="flex justify-between items-center mb-6">
+                 <h2 class="text-xl font-bold text-gray-900 flex items-center">
+                   <i class="fas fa-users text-primary-600 mr-2"></i> จัดการผู้ใช้
+                 </h2>
+                 <button @click="showUserModal()" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center shadow-md">
+                   <i class="fas fa-plus mr-2"></i>เพิ่มผู้ใช้ใหม่
+                 </button>
+               </div>
+               
+               <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+                 <div class="p-4 border-b bg-gray-50">
+                   <div class="relative">
+                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                       <i class="fas fa-search text-gray-400"></i>
+                     </div>
+                     <input type="text" x-model="searchQuery" placeholder="ค้นหาผู้ใช้..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                   </div>
+                 </div>
+                 <div class="overflow-x-auto">
+                   <table class="min-w-full divide-y divide-gray-200">
+                     <thead class="bg-gray-50">
+                       <tr>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อ-นามสกุล</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">อีเมล</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สิทธิ์การใช้งาน</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่สร้าง</th>
+                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การจัดการ</th>
+                       </tr>
+                     </thead>
+                     <tbody class="bg-white divide-y divide-gray-200">
+                       <template x-for="user in users" :key="user?.user_id">
+                         <tr class="hover:bg-gray-50">
+                           <td class="px-4 py-3 whitespace-nowrap">
+                             <div class="flex items-center">
+                               <div class="h-8 w-8 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center mr-3">
+                                 <span x-text="user?.name?.charAt(0).toUpperCase() || 'U'"></span>
+                               </div>
+                               <div class="text-sm font-medium text-gray-900" x-text="user?.name || '-'"></div>
+                             </div>
+                           </td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900" x-text="user?.email || '-'"></td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                             <span 
+                               class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                               :class="{
+                                 'bg-primary-100 text-primary-800': user?.role === 'admin',
+                                 'bg-blue-100 text-blue-800': user?.role === 'staff',
+                                 'bg-gray-100 text-gray-800': user?.role === 'user',
+                                 'bg-green-100 text-green-800': user?.role === 'customer'
+                               }"
+                               x-text="getRoleText(user?.role)"></span>
+                           </td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm">
+                             <span 
+                               class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                               :class="{
+                                 'bg-green-100 text-green-800': user?.status === 'active',
+                                 'bg-red-100 text-red-800': user?.status === 'inactive'
+                               }"
+                               x-text="getStatusText(user?.status)"></span>
+                           </td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500" x-text="formatDate(user?.created_at)"></td>
+                           <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                             <div class="flex space-x-2">
+                               <button @click="showUserModal(user)" class="text-primary-600 hover:text-primary-800 p-1" title="แก้ไขผู้ใช้">
+                                 <i class="fas fa-edit"></i>
+                               </button>
+                               <button @click="deleteUser(user?.user_id)" class="text-red-600 hover:text-red-800 p-1" title="ลบผู้ใช้">
+                                 <i class="fas fa-trash"></i>
+                               </button>
+                             </div>
+                           </td>
+                         </tr>
+                       </template>
+                       <tr x-show="users.length === 0">
+                         <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500">
+                           <i class="fas fa-users text-gray-300 text-3xl mb-2"></i>
+                           <p>ไม่มีผู้ใช้</p>
+                         </td>
+                       </tr>
+                     </tbody>
+                   </table>
+                 </div>
+               </div>
+             </div>
+             
+             <div x-show="dashboardTab === 'settings'" x-cloak x-transition>
+               <!-- ตั้งค่าระบบ -->
+               <h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                 <i class="fas fa-cog text-primary-600 mr-2"></i> ตั้งค่าระบบ
+               </h2>
+               
+               <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+                 <div class="p-6">
+                   <form @submit.prevent="saveSettings">
+                     <div class="space-y-8">
+                       <div>
+                         <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                           <i class="fas fa-store text-primary-600 mr-2"></i> ตั้งค่าทั่วไป
+                         </h3>
+                         <div class="grid grid-cols-1 gap-6">
+                           <div>
+                             <label for="configStoreName" class="block text-sm font-medium text-gray-700 mb-1">ชื่อร้านค้า</label>
+                             <input type="text" id="configStoreName" x-model="configData.store_name" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                           </div>
+                           <div>
+                             <label for="configStoreDescription" class="block text-sm font-medium text-gray-700 mb-1">คำอธิบายร้านค้า</label>
+                             <textarea id="configStoreDescription" x-model="configData.store_description" rows="2" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"></textarea>
+                           </div>
+                           <div>
+                             <label for="configWelcomeMessage" class="block text-sm font-medium text-gray-700 mb-1">ข้อความต้อนรับ</label>
+                             <input type="text" id="configWelcomeMessage" x-model="configData.welcome_message" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                           </div>
+                           <div>
+                             <label for="configStoreLogo" class="block text-sm font-medium text-gray-700 mb-1">โลโก้ร้านค้า</label>
+                             <div class="flex items-center space-x-2 mb-2">
+                               <input type="text" id="configStoreLogo" x-model="configData.store_logo" class="flex-1 border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="URL โลโก้ (อัพโหลดอัตโนมัติด้วยปุ่มด้านขวา)" readonly>
+                               <button type="button" @click="uploadStoreLogo" class="bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded-md text-sm transition-colors flex items-center">
+                                 <i class="fas fa-upload mr-1"></i> อัพโหลด
+                               </button>
+                             </div>
+                             <div x-show="configData.store_logo" class="mt-2 border p-3 rounded-md inline-block">
+                               <p class="text-xs text-gray-500 mb-1">ตัวอย่างโลโก้:</p>
+                               <img :src="configData.store_logo" alt="Logo Preview" class="h-12 object-contain">
+                             </div>
+                           </div>
+                           <div>
+                             <label for="configAnnouncement" class="block text-sm font-medium text-gray-700 mb-1">ข้อความประกาศ <span class="text-xs text-gray-500">(แสดงด้านบนของหน้าเว็บ)</span></label>
+                             <textarea id="configAnnouncement" x-model="configData.announcement" rows="2" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"></textarea>
+                           </div>
+                         </div>
+                       </div>
+                       
+                       <div>
+                         <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                           <i class="fas fa-money-bill-wave text-primary-600 mr-2"></i> ตั้งค่าการชำระเงิน
+                         </h3>
+                         <div class="grid grid-cols-1 gap-4">
+                           
+                           
+                           <!-- ปรับแต่งส่วนอัพโหลด QR Code ในหน้าตั้งค่า -->
+                           <div>
+                             <label for="configPaymentQRCode" class="block text-sm font-medium text-gray-700 mb-1">QR Code รับชำระเงิน</label>
+                             <div class="flex items-center space-x-2 mb-2">
+                               <input type="text" id="configPaymentQRCode" x-model="configData.payment_qrcode" class="flex-1 border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="URL รูปภาพ QR Code (อัพโหลดอัตโนมัติด้วยปุ่มด้านขวา)" readonly>
+                               <button type="button" @click="uploadPaymentQRCode" class="bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded-md text-sm transition-colors flex items-center">
+                                 <i class="fas fa-upload mr-1"></i> อัพโหลด
+                               </button>
+                             </div>
+                             <div x-show="configData.payment_qrcode" class="mt-2 border p-3 rounded-md inline-block">
+                               <p class="text-xs text-gray-500 mb-1">ตัวอย่าง QR Code:</p>
+                               <!-- เพิ่ม class cursor-pointer และ event @click -->
+                               <img :src="configData.payment_qrcode" 
+                                   alt="QR Code Preview" 
+                                   class="h-24 object-contain cursor-pointer hover:opacity-80 transition-opacity" 
+                                   @click="previewQRCode(configData.payment_qrcode)">
+                             </div>
+                             <p class="text-xs text-gray-500 mt-1">* QR Code ที่ใช้รับการชำระเงินจากลูกค้า (คลิกที่รูปเพื่อดูขนาดใหญ่)</p>
+                           </div>
+                           
+                           <!-- เพิ่มข้อมูลบัญชีธนาคาร -->
+                           <div>
+                             <label for="configBankAccount" class="block text-sm font-medium text-gray-700 mb-1">ข้อมูลบัญชีธนาคาร</label>
+                             <textarea id="configBankAccount" x-model="configData.bank_account_info" rows="3" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="ชื่อธนาคาร: ธนาคารกสิกรไทย&#10;เลขที่บัญชี: 123-4-56789-0&#10;ชื่อบัญชี: นาย ตัวอย่าง ทดสอบ&#10;สาขา: สาขาตัวอย่าง"></textarea>
+                             <p class="text-xs text-gray-500 mt-1">* ข้อมูลบัญชีธนาคารของร้านค้า</p>
+                           </div>
+                         </div>
+                       </div>
+                       
+                       <div>
+                         <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                           <i class="fas fa-bell text-primary-600 mr-2"></i> ตั้งค่าการแจ้งเตือน
+                         </h3>
+                         <div class="grid grid-cols-1 gap-4">
+                           <div>
+                             <label for="configTelegramBotToken" class="block text-sm font-medium text-gray-700 mb-1">Telegram Bot Token</label>
+                             <input type="text" id="configTelegramBotToken" x-model="configData.telegram_bot_token" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                             <p class="text-xs text-gray-500 mt-1">* สร้างบอทได้ที่ <a href="https://t.me/BotFather" target="_blank" class="text-primary-600 hover:text-primary-700">@BotFather</a> บน Telegram</p>
+                           </div>
+                           <div>
+                             <label for="configTelegramChatId" class="block text-sm font-medium text-gray-700 mb-1">Telegram Chat ID</label>
+                             <input type="text" id="configTelegramChatId" x-model="configData.telegram_chat_id" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                             <p class="text-xs text-gray-500 mt-1">* หา Chat ID ได้จากบอท <a href="https://t.me/userinfobot" target="_blank" class="text-primary-600 hover:text-primary-700">@userinfobot</a> บน Telegram</p>
+                           </div>
+                           <div>
+                             <button type="button" @click="testTelegramNotification" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center">
+                               <i class="fas fa-paper-plane mr-2"></i>ทดสอบการแจ้งเตือน
+                             </button>
+                           </div>
+                         </div>
+                       </div>
+                       
+                       <div class="pt-5">
+                         <div class="flex justify-end">
+                           <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-md text-base font-medium transition-colors flex items-center shadow-md">
+                             <i class="fas fa-save mr-2"></i>บันทึกการตั้งค่า
+                           </button>
+                         </div>
+                       </div>
+                     </div>
+                   </form>
+                 </div>
+               </div>
+             </div>
+           </div>
+         </div>
+       </div>
+     </div>
+   </main>
+
+   <!-- ส่วนท้ายของเว็บไซต์ -->
+   <footer class="bg-gray-800 text-white mt-auto py-6">
+     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+       <div class="md:flex md:justify-between">
+         <div class="mb-6 md:mb-0">
+           <div class="flex items-center">
+             <img :src="storeConfig?.store_logo || 'https://via.placeholder.com/40'" alt="Logo" class="h-8 w-auto mr-2">
+             <span class="text-xl font-semibold" x-text="storeConfig?.store_name || 'ร้านค้าดิจิทัลออนไลน์'"></span>
+           </div>
+           <p class="mt-2 text-sm text-gray-400" x-text="storeConfig?.store_description || 'ร้านค้าดิจิทัลออนไลน์ครบวงจร'"></p>
+         </div>
+         <div>
+           <h3 class="text-sm font-semibold text-white tracking-wider uppercase mb-3">ติดต่อเรา</h3>
+           <a href="mailto:naiyachonponthong@gmail.com" class="text-sm text-gray-400 hover:text-white flex items-center mb-2">
+             <i class="fas fa-envelope mr-2"></i> naiyachonponthong@gmail.com
+           </a>
+         </div>
+       </div>
+       <div class="mt-6 border-t border-gray-700 pt-6 text-center">
+         <p class="text-sm text-gray-400">&copy; <?= new Date().getFullYear() ?> <span x-text="storeConfig?.store_name || 'ร้านค้าดิจิทัลออนไลน์'"></span> - พัฒนาโดย <a href="mailto:naiyachonponthong@gmail.com" class="text-gray-300 hover:text-white">naiyachonponthong@gmail.com</a></p>
+       </div>
+     </div>
+   </footer>
+
+   <!-- Product Modal -->
+   <div x-show="productModalOpen" class="fixed inset-0 overflow-y-auto z-50" x-cloak>
+     <div class="flex items-center justify-center min-h-screen p-4 text-center">
+       <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+         <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+       </div>
+       
+       <div class="bg-white rounded-xl overflow-hidden shadow-xl transform transition-all max-w-2xl w-full">
+         <div class="bg-primary-600 px-4 py-3 border-b flex justify-between items-center">
+           <h3 class="text-lg font-medium text-white" x-text="editingProduct ? 'แก้ไขสินค้า' : 'เพิ่มสินค้าใหม่'"></h3>
+           <button @click="productModalOpen = false" class="text-white hover:text-gray-200">
+             <i class="fas fa-times"></i>
+           </button>
+         </div>
+         <div class="p-6">
+           <form id="productForm" @submit.prevent="saveProduct">
+             <input type="hidden" x-model="productForm.product_id">
+             
+             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+               <!-- คอลัมน์ซ้าย -->
+               <div class="space-y-4">
+                 <div>
+                   <label for="productName" class="block text-sm font-medium text-gray-700 mb-1">ชื่อสินค้า <span class="text-red-500">*</span></label>
+                   <input type="text" id="productName" x-model="productForm.name" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" required>
+                 </div>
+                 
+                 <div>
+                   <label for="productPrice" class="block text-sm font-medium text-gray-700 mb-1">ราคา (บาท) <span class="text-red-500">*</span></label>
+                   <input type="number" id="productPrice" x-model="productForm.price" min="0" step="0.01" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" required>
+                 </div>
+                 
+                 <div>
+                   <label for="productCategory" class="block text-sm font-medium text-gray-700 mb-1">หมวดหมู่</label>
+                   <input type="text" id="productCategory" x-model="productForm.category" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                 </div>
+                 
+                 <div>
+                   <label for="productStatus" class="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
+                   <select id="productStatus" x-model="productForm.status" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" required>
+                     <option value="active">เปิดขาย</option>
+                     <option value="inactive">ปิดขาย</option>
+                   </select>
+                   </div>
+
+                 <!-- เพิ่มฟิลด์สำหรับลิงก์ตัวอย่าง -->
+                 <div>
+                   <label for="productDemoLink" class="block text-sm font-medium text-gray-700 mb-1">ลิงก์ตัวอย่างระบบ</label>
+                   <div class="flex">
+                     <span class="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500">
+                       <i class="fas fa-link"></i>
+                     </span>
+                     <input type="url" id="productDemoLink" x-model="productForm.demo_link" 
+                           placeholder="https://example.com/demo"
+                           class="w-full border border-gray-300 rounded-r-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                   </div>
+                   <p class="text-xs text-gray-500 mt-1">URL เว็บไซต์ตัวอย่างการใช้งานระบบ</p>
+                 </div>
+               </div>
+               
+               <!-- คอลัมน์ขวา -->
+               <div class="space-y-4">
+                 <div>
+                   <label for="productDescription" class="block text-sm font-medium text-gray-700 mb-1">รายละเอียด</label>
+                   <textarea id="productDescription" x-model="productForm.description" rows="4" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"></textarea>
+                   <p class="text-xs text-gray-500 mt-1">สนับสนุน # หัวข้อ, * bullet list, และ **ข้อความเน้น**</p>
+                 </div>
+                 
+                 <!-- รูปภาพสินค้า -->
+                 <div>
+                   <label class="block text-sm font-medium text-gray-700 mb-1">รูปภาพสินค้า</label>
+                   <div 
+                     @click="document.getElementById('productImageInput').click()" 
+                     class="border-2 border-dashed border-gray-300 rounded-md py-4 px-4 text-center cursor-pointer hover:border-primary-500 transition-colors"
+                     :class="{'bg-gray-50': !productForm.image}"
+                   >
+                     <input type="file" id="productImageInput" accept="image/*" class="hidden" @change="handleProductImageUpload($event)">
+                     
+                     <div x-show="!productForm.image">
+                       <i class="fas fa-image text-gray-400 text-3xl mb-2"></i>
+                       <p class="text-sm text-gray-500">คลิกเพื่ออัพโหลดรูปภาพสินค้า (JPG, PNG)</p>
+                     </div>
+                     
+                     <div x-show="productForm.image" class="text-center">
+                       <img :src="productForm.image" class="max-h-40 inline-block mb-2">
+                       <button @click.stop="removeProductImage" type="button" class="text-red-500 hover:text-red-700 text-sm font-medium">
+                         <i class="fas fa-times mr-1"></i> ลบรูปภาพ
+                       </button>
+                     </div>
+                   </div>
+                 </div>
+                 
+                 <!-- ไฟล์สินค้า -->
+                 <div>
+                   <label class="block text-sm font-medium text-gray-700 mb-1">ไฟล์สินค้า <span class="text-red-500">*</span></label>
+                   <div 
+                     @click="document.getElementById('productFileInput').click()" 
+                     class="border-2 border-dashed border-gray-300 rounded-md py-4 px-4 text-center cursor-pointer hover:border-primary-500 transition-colors"
+                     :class="{'bg-gray-50': !productForm.file_name}"
+                   >
+                     <input type="file" id="productFileInput" class="hidden" @change="handleProductFileUpload($event)">
+                     
+                     <div x-show="!productForm.file_name">
+                       <i class="fas fa-file-alt text-gray-400 text-3xl mb-2"></i>
+                       <p class="text-sm text-gray-500">คลิกเพื่ออัพโหลดไฟล์สินค้า (ZIP, PDF, MP3, MP4, ฯลฯ)</p>
+                     </div>
+                     
+                     <div x-show="productForm.file_name" class="text-center">
+                       <div class="flex items-center justify-center mb-2">
+                         <i class="fas fa-file-alt text-primary-500 text-3xl"></i>
+                       </div>
+                       <p class="text-sm font-medium text-gray-800" x-text="productForm.file_name"></p>
+                       <p class="text-xs text-gray-500 mt-1" x-text="'File ID: ' + productForm.file_id"></p>
+                       <button @click.stop="removeProductFile" type="button" class="text-red-500 hover:text-red-700 text-sm font-medium mt-2">
+                         <i class="fas fa-times mr-1"></i> ลบไฟล์
+                       </button>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+             </div>
+             
+             <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+               <button type="button" @click="productModalOpen = false" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-5 py-2 rounded-md text-sm font-medium transition-colors">
+                 <i class="fas fa-times mr-2"></i> ยกเลิก
+               </button>
+               <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2 rounded-md text-sm font-medium transition-colors">
+                 <i class="fas fa-save mr-2"></i> บันทึก
+               </button>
+             </div>
+           </form>
+         </div>
+       </div>
+     </div>
+   </div>
+   
+   <!-- User Modal -->
+   <div x-show="userModalOpen" class="fixed inset-0 overflow-y-auto z-50" x-cloak>
+     <div class="flex items-center justify-center min-h-screen p-4 text-center">
+       <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+         <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+       </div>
+       
+       <div class="bg-white rounded-xl overflow-hidden shadow-xl transform transition-all max-w-lg w-full">
+         <div class="bg-primary-600 px-4 py-3 border-b flex justify-between items-center">
+           <h3 class="text-lg font-medium text-white" x-text="editingUser ? 'แก้ไขผู้ใช้' : 'เพิ่มผู้ใช้ใหม่'"></h3>
+           <button @click="userModalOpen = false" class="text-white hover:text-gray-200">
+             <i class="fas fa-times"></i>
+           </button>
+         </div>
+         <div class="p-6">
+           <form id="userForm" @submit.prevent="saveUser">
+             <input type="hidden" x-model="userForm.user_id">
+             <div class="space-y-4">
+               <div>
+                 <label for="userName" class="block text-sm font-medium text-gray-700 mb-1">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
+                 <div class="relative">
+                   <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                     <i class="fas fa-user text-gray-400"></i>
+                   </div>
+                   <input type="text" id="userName" x-model="userForm.name" class="w-full pl-10 border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" required>
+                 </div>
+               </div>
+               <div>
+                 <label for="userEmail" class="block text-sm font-medium text-gray-700 mb-1">อีเมล <span class="text-red-500">*</span></label>
+                 <div class="relative">
+                   <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                     <i class="fas fa-envelope text-gray-400"></i>
+                   </div>
+                   <input type="email" id="userEmail" x-model="userForm.email" class="w-full pl-10 border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" required>
+                 </div>
+               </div>
+               <div>
+                 <label for="userPassword" class="block text-sm font-medium text-gray-700 mb-1">รหัสผ่าน <span x-show="!editingUser" class="text-red-500">*</span></label>
+                 <div class="relative">
+                   <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                     <i class="fas fa-key text-gray-400"></i>
+                   </div>
+                   <input type="password" id="userPassword" x-model="userForm.password" class="w-full pl-10 border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" :required="!editingUser">
+                 </div>
+                 <p x-show="editingUser" class="text-xs text-gray-500 mt-1">เว้นว่างไว้ถ้าไม่ต้องการเปลี่ยนรหัสผ่าน</p>
+               </div>
+               <div>
+                 <label for="userRole" class="block text-sm font-medium text-gray-700 mb-1">สิทธิ์การใช้งาน</label>
+                 <div class="relative">
+                   <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                     <i class="fas fa-user-tag text-gray-400"></i>
+                   </div>
+                   <select id="userRole" x-model="userForm.role" class="w-full pl-10 border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" required>
+                     <option value="admin">ผู้ดูแลระบบ</option>
+                     <option value="staff">เจ้าหน้าที่</option>
+                     <option value="customer">ลูกค้า</option>
+                   </select>
+                 </div>
+               </div>
+               <div>
+                 <label for="userStatus" class="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
+                 <div class="relative">
+                   <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                     <i class="fas fa-toggle-on text-gray-400"></i>
+                   </div>
+                   <select id="userStatus" x-model="userForm.status" class="w-full pl-10 border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" required>
+                     <option value="active">ใช้งาน</option>
+                     <option value="inactive">ระงับการใช้งาน</option>
+                   </select>
+                 </div>
+               </div>
+             </div>
+             <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+               <button type="button" @click="userModalOpen = false" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-5 py-2 rounded-md text-sm font-medium transition-colors">
+                 <i class="fas fa-times mr-2"></i> ยกเลิก
+               </button>
+               <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2 rounded-md text-sm font-medium transition-colors">
+                 <i class="fas fa-save mr-2"></i> บันทึก
+               </button>
+             </div>
+           </form>
+         </div>
+       </div>
+     </div>
+   </div>
+
+   <!-- Order Detail Modal -->
+   <div x-show="orderDetailModalOpen" class="fixed inset-0 overflow-y-auto z-50" x-cloak>
+     <div class="flex items-center justify-center min-h-screen p-4 text-center">
+       <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+         <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+       </div>
+       
+       <div class="bg-white rounded-xl overflow-hidden shadow-xl transform transition-all max-w-3xl w-full">
+         <div class="bg-primary-600 px-4 py-3 border-b flex justify-between items-center">
+           <h3 class="text-lg font-medium text-white flex items-center">
+             <i class="fas fa-info-circle mr-2"></i> รายละเอียดคำสั่งซื้อ
+           </h3>
+           <button @click="orderDetailModalOpen = false" class="text-white hover:text-gray-200">
+             <i class="fas fa-times"></i>
+           </button>
+         </div>
+         <div class="p-6" x-show="currentOrderDetail !== null">
+           <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+             <div class="bg-gray-50 p-4 rounded-lg">
+               <h4 class="text-base font-medium text-gray-900 mb-3 flex items-center">
+                 <i class="fas fa-shopping-cart text-primary-600 mr-2"></i> ข้อมูลคำสั่งซื้อ
+               </h4>
+               <div class="space-y-2">
+                 <p class="text-sm text-gray-800">
+                   <span class="font-medium">รหัสคำสั่งซื้อ:</span> <span class="ml-1" x-text="currentOrderDetail?.order_id || '-'"></span>
+                 </p>
+                 <p class="text-sm text-gray-800">
+                   <span class="font-medium">วันที่สั่งซื้อ:</span> <span class="ml-1" x-text="formatDate(currentOrderDetail?.order_date || '')"></span>
+                 </p>
+                 <p class="text-sm text-gray-800">
+                   <span class="font-medium">สถานะ:</span> 
+                   <span 
+                    class="ml-1 px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                     :class="{
+                       'bg-yellow-100 text-yellow-800': currentOrderDetail?.status === 'pending',
+                       'bg-blue-100 text-blue-800': currentOrderDetail?.status === 'processing',
+                       'bg-green-100 text-green-800': currentOrderDetail?.status === 'completed',
+                       'bg-red-100 text-red-800': currentOrderDetail?.status === 'cancelled'
+                     }"
+                     x-text="getStatusText(currentOrderDetail?.status || '')"></span>
+                 </p>
+               </div>
+             </div>
+             <div x-show="currentOrderDetail?.customer" class="bg-gray-50 p-4 rounded-lg">
+               <h4 class="text-base font-medium text-gray-900 mb-3 flex items-center">
+                 <i class="fas fa-user text-primary-600 mr-2"></i> ข้อมูลลูกค้า
+               </h4>
+               <div class="space-y-2">
+                 <p class="text-sm text-gray-800">
+                   <span class="font-medium">ชื่อ-นามสกุล:</span> <span class="ml-1" x-text="currentOrderDetail?.customer?.name || '-'"></span>
+                 </p>
+                 <p class="text-sm text-gray-800">
+                   <span class="font-medium">อีเมล:</span> <span class="ml-1 break-all" x-text="currentOrderDetail?.customer?.email || '-'"></span>
+                 </p>
+                 <p class="text-sm text-gray-800">
+                   <span class="font-medium">เบอร์โทรศัพท์:</span> <span class="ml-1" x-text="currentOrderDetail?.customer?.phone || '-'"></span>
+                 </p>
+               </div>
+             </div>
+           </div>
+           
+           <h4 class="text-base font-medium text-gray-900 mb-3 flex items-center">
+             <i class="fas fa-box text-primary-600 mr-2"></i> รายการสินค้า
+           </h4>
+           <div class="overflow-x-auto bg-white border rounded-lg">
+             <table class="min-w-full divide-y divide-gray-200">
+               <thead>
+                 <tr>
+                   <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สินค้า</th>
+                   <th class="px-4 py-3 bg-gray-50 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวน</th>
+                   <th class="px-4 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ราคา</th>
+                   <th class="px-4 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">รวม</th>
+                 </tr>
+               </thead>
+               <tbody class="divide-y divide-gray-200">
+                 <template x-for="(item, index) in currentOrderDetail?.items || []" :key="index">
+                   <tr class="hover:bg-gray-50">
+                     <td class="px-4 py-3 text-sm text-gray-900">
+                       <div class="flex items-center">
+                         <div class="h-10 w-10 flex-shrink-0 mr-3">
+                           <img class="h-10 w-10 rounded-md object-cover" :src="item?.image || 'https://via.placeholder.com/40'" :alt="item?.name">
+                         </div>
+                         <div class="font-medium" x-text="item?.name || '-'"></div>
+                       </div>
+                     </td>
+                     <td class="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-900" x-text="item?.quantity || '1'"></td>
+                     <td class="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900" x-text="'฿' + parseFloat(item?.price || 0).toFixed(2)"></td>
+                     <td class="px-4 py-3 whitespace-nowrap text-sm text-right font-medium text-gray-900" x-text="'฿' + ((item?.quantity || 1) * parseFloat(item?.price || 0)).toFixed(2)"></td>
+                   </tr>
+                 </template>
+                 <tr x-show="!currentOrderDetail?.items || currentOrderDetail.items.length === 0">
+                   <td colspan="4" class="px-4 py-4 text-center text-sm text-gray-500">ไม่มีรายการสินค้า</td>
+                 </tr>
+               </tbody>
+               <tfoot>
+                 <tr>
+                   <td colspan="3" class="px-4 py-3 text-right text-sm font-medium text-gray-900 bg-gray-50">รวมทั้งสิ้น:</td>
+                   <td class="px-4 py-3 text-right text-sm font-bold text-primary-600 bg-gray-50" x-text="'฿' + parseFloat(currentOrderDetail?.total_amount || 0).toFixed(2)"></td>
+                 </tr>
+               </tfoot>
+             </table>
+           </div>
+         </div>
+         <div class="bg-gray-50 px-4 py-3 flex justify-between">
+           <button @click="showUpdateOrderStatus(currentOrderDetail?.order_id)" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center">
+             <i class="fas fa-edit mr-2"></i> อัพเดทสถานะ
+           </button>
+           <button @click="orderDetailModalOpen = false" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+             <i class="fas fa-times mr-2"></i> ปิด
+           </button>
+         </div>
+       </div>
+     </div>
+   </div>
+
+  <!-- Payment Detail Modal -->
+<div x-show="paymentDetailModalOpen" class="fixed inset-0 overflow-y-auto z-50" x-cloak>
+  <div class="flex items-center justify-center min-h-screen p-4 text-center">
+    <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+      <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+    </div>
+    
+    <div class="bg-white rounded-xl overflow-hidden shadow-xl transform transition-all max-w-2xl w-full">
+      <div class="bg-primary-600 px-4 py-3 border-b flex justify-between items-center">
+        <h3 class="text-lg font-medium text-white flex items-center">
+          <i class="fas fa-credit-card mr-2"></i> รายละเอียดการชำระเงิน
+        </h3>
+        <button @click="paymentDetailModalOpen = false" class="text-white hover:text-gray-200">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="p-6" x-show="currentPaymentDetail !== null">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <!-- ข้อมูลการชำระเงิน -->
+          <div class="bg-gray-50 p-4 rounded-lg">
+            <h4 class="text-base font-medium text-gray-900 mb-3 flex items-center">
+              <i class="fas fa-credit-card text-primary-600 mr-2"></i> ข้อมูลการชำระเงิน
+            </h4>
+            <div class="space-y-2">
+              <p class="text-sm text-gray-800">
+                <span class="font-medium">รหัสการชำระเงิน:</span> <span class="ml-1" x-text="currentPaymentDetail?.payment_id || '-'"></span>
+              </p>
+              <p class="text-sm text-gray-800">
+                <span class="font-medium">รหัสคำสั่งซื้อ:</span> <span class="ml-1" x-text="currentPaymentDetail?.order_id || '-'"></span>
+              </p>
+              <p class="text-sm text-gray-800">
+                <span class="font-medium">จำนวนเงิน:</span> <span class="ml-1 font-bold text-primary-600" x-text="currentPaymentDetail ? '฿' + parseFloat(currentPaymentDetail.amount || 0).toFixed(2) : '-'"></span>
+              </p>
+              <p class="text-sm text-gray-800">
+                <span class="font-medium">วันที่ชำระ:</span> <span class="ml-1" x-text="formatDate(currentPaymentDetail?.payment_date || '')"></span>
+              </p>
+              <p class="text-sm text-gray-800">
+                <span class="font-medium">สถานะ:</span> 
+                <span 
+                  class="ml-1 px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                  :class="{
+                    'bg-yellow-100 text-yellow-800': currentPaymentDetail?.status === 'pending',
+                    'bg-green-100 text-green-800': currentPaymentDetail?.status === 'completed',
+                    'bg-red-100 text-red-800': currentPaymentDetail?.status === 'rejected',
+                    'bg-gray-100 text-gray-800': currentPaymentDetail?.status === 'cancelled'
+                  }"
+                  x-text="getStatusText(currentPaymentDetail?.status || '')"></span>
+              </p>
+              <!-- แสดงเหตุผลในการปฏิเสธ ถ้ามี -->
+              <p class="text-sm text-gray-800" x-show="currentPaymentDetail?.status === 'rejected' && currentPaymentDetail?.reject_reason">
+                <span class="font-medium">เหตุผลในการปฏิเสธ:</span> 
+                <span class="ml-1 text-red-600" x-text="currentPaymentDetail?.reject_reason || '-'"></span>
+              </p>
+            </div>
+          </div>
+          
+          <!-- ข้อมูลลูกค้า -->
+          <div x-show="paymentOrder !== null" class="bg-gray-50 p-4 rounded-lg">
+            <h4 class="text-base font-medium text-gray-900 mb-3 flex items-center">
+              <i class="fas fa-user text-primary-600 mr-2"></i> ข้อมูลลูกค้า
+            </h4>
+            <div class="space-y-2">
+              <p class="text-sm text-gray-800">
+                <span class="font-medium">ชื่อลูกค้า:</span> <span class="ml-1" x-text="paymentOrder?.customer?.name || '-'"></span>
+              </p>
+              <p class="text-sm text-gray-800">
+                <span class="font-medium">อีเมล:</span> <span class="ml-1 break-all" x-text="paymentOrder?.customer?.email || '-'"></span>
+              </p>
+              <p class="text-sm text-gray-800">
+                <span class="font-medium">เบอร์โทร:</span> <span class="ml-1" x-text="paymentOrder?.customer?.phone || '-'"></span>
+              </p>
+            </div>
+            <!-- แสดงเตือนถ้ายอดเงินไม่ตรงกับยอดคำสั่งซื้อ -->
+            <div x-show="currentPaymentDetail && paymentOrder && parseFloat(currentPaymentDetail.amount) !== parseFloat(paymentOrder.total_amount)" 
+                class="mt-3 bg-yellow-50 p-2 rounded-md border border-yellow-200">
+              <p class="text-xs text-yellow-800 flex items-center">
+                <i class="fas fa-exclamation-triangle mr-1"></i>
+                <span x-text="parseFloat(currentPaymentDetail.amount) < parseFloat(paymentOrder.total_amount) ? 
+                  'ชำระเงินน้อยกว่ายอดคำสั่งซื้อ ' + (parseFloat(paymentOrder.total_amount) - parseFloat(currentPaymentDetail.amount)).toFixed(2) + ' บาท' : 
+                  'ชำระเงินมากกว่ายอดคำสั่งซื้อ ' + (parseFloat(currentPaymentDetail.amount) - parseFloat(paymentOrder.total_amount)).toFixed(2) + ' บาท'">
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- รายการสินค้าที่สั่งซื้อ -->
+        <div x-show="paymentOrder !== null" class="mb-6">
+          <h4 class="text-base font-medium text-gray-900 mb-3 flex items-center">
+            <i class="fas fa-box text-primary-600 mr-2"></i> รายการสินค้าที่สั่งซื้อ
+          </h4>
+          <div class="bg-white border rounded-lg overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สินค้า</th>
+                  <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวน</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ราคา</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">รวม</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                <template x-for="(item, index) in paymentOrder?.items || []" :key="index">
+                  <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm text-gray-900">
+                      <div class="flex items-center">
+                        <div class="h-10 w-10 flex-shrink-0 mr-3">
+                          <img class="h-10 w-10 rounded-md object-cover" :src="item?.image || 'https://via.placeholder.com/40'" :alt="item?.name">
+                        </div>
+                        <div>
+                          <div class="font-medium" x-text="item?.name || '-'"></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-center text-gray-900" x-text="item?.quantity || '1'"></td>
+                    <td class="px-4 py-3 text-sm text-right text-gray-900" x-text="'฿' + parseFloat(item?.price || 0).toFixed(2)"></td>
+                    <td class="px-4 py-3 text-sm text-right font-medium text-gray-900" x-text="'฿' + ((item?.quantity || 1) * parseFloat(item?.price || 0)).toFixed(2)"></td>
+                  </tr>
+                </template>
+                <tr x-show="!paymentOrder?.items || paymentOrder.items.length === 0">
+                  <td colspan="4" class="px-4 py-4 text-center text-sm text-gray-500">ไม่มีรายการสินค้า</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="3" class="px-4 py-3 text-right text-sm font-medium text-gray-900 bg-gray-50">รวมทั้งสิ้น:</td>
+                  <td class="px-4 py-3 text-right text-sm font-bold text-primary-600 bg-gray-50" x-text="'฿' + parseFloat(paymentOrder?.total_amount || 0).toFixed(2)"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+        
+        <!-- หลักฐานการชำระเงิน -->
+        <h4 class="text-base font-medium text-gray-900 mb-3 flex items-center">
+          <i class="fas fa-receipt text-primary-600 mr-2"></i> หลักฐานการชำระเงิน
+        </h4>
+        <div class="bg-gray-50 p-4 rounded-lg flex justify-center">
+          <img :src="currentPaymentDetail?.slip_url || ''" 
+               alt="Payment Slip" 
+               class="max-h-80 rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+               @click="previewSlipImage(currentPaymentDetail?.slip_url)">
+        </div>
+      </div>
+      <div class="bg-gray-50 px-4 py-3 flex justify-between">
+        <!-- ปุ่มสำหรับการจัดการด้านซ้าย -->
+        <div class="flex space-x-3">
+          <!-- ปุ่มอนุมัติ (แสดงเฉพาะเมื่อสถานะเป็น pending) -->
+          <button 
+            x-show="currentPaymentDetail && currentPaymentDetail.status === 'pending'"
+            @click="approvePayment(currentPaymentDetail?.payment_id)" 
+            class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center">
+            <i class="fas fa-check mr-2"></i> ยืนยันการชำระเงิน
+          </button>
+          
+          <!-- ปุ่มปฏิเสธ (แสดงเฉพาะเมื่อสถานะเป็น pending) -->
+          <button 
+            x-show="currentPaymentDetail && currentPaymentDetail.status === 'pending'"
+            @click="rejectPayment(currentPaymentDetail?.payment_id)" 
+            class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center">
+            <i class="fas fa-times mr-2"></i> ปฏิเสธการชำระเงิน
+          </button>
+          
+          <!-- ปุ่มยกเลิก (แสดงเฉพาะเมื่อสถานะเป็น completed) -->
+          <button 
+            x-show="currentPaymentDetail && currentPaymentDetail.status === 'completed'"
+            @click="cancelPayment(currentPaymentDetail?.payment_id)" 
+            class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center">
+            <i class="fas fa-ban mr-2"></i> ยกเลิกการชำระเงิน
+          </button>
+          
+          <!-- Element ว่างสำหรับกรณีที่ไม่มีปุ่มให้แสดง -->
+          <div x-show="!(currentPaymentDetail && (currentPaymentDetail.status === 'pending' || currentPaymentDetail.status === 'completed'))"></div>
+        </div>
+        
+        <!-- ปุ่มปิด -->
+        <button @click="paymentDetailModalOpen = false" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+          <i class="fas fa-times mr-2"></i> ปิด
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+   <!-- Customer Order Detail Modal -->
+   <div x-show="customerOrderDetailModalOpen" class="fixed inset-0 overflow-y-auto z-50" x-cloak>
+     <div class="flex items-center justify-center min-h-screen p-4 text-center">
+       <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+         <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+       </div>
+       
+       <div class="bg-white rounded-xl overflow-hidden shadow-xl transform transition-all max-w-3xl w-full">
+         <div class="bg-primary-600 px-4 py-3 border-b flex justify-between items-center">
+           <h3 class="text-lg font-medium text-white flex items-center">
+             <i class="fas fa-shopping-cart mr-2"></i> รายละเอียดคำสั่งซื้อ
+           </h3>
+           <button @click="customerOrderDetailModalOpen = false" class="text-white hover:text-gray-200">
+             <i class="fas fa-times"></i>
+           </button>
+         </div>
+         <div class="p-6" x-show="customerOrderDetail !== null">
+           <div class="mb-6">
+             <div class="bg-gray-50 p-4 rounded-lg">
+               <h4 class="text-base font-medium text-gray-900 mb-3 flex items-center">
+                 <i class="fas fa-info-circle text-primary-600 mr-2"></i> ข้อมูลคำสั่งซื้อ
+               </h4>
+               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div class="space-y-2">
+                   <p class="text-sm text-gray-800">
+                     <span class="font-medium">รหัสคำสั่งซื้อ:</span> <span class="ml-1" x-text="customerOrderDetail?.order_id || '-'"></span>
+                   </p>
+                   <p class="text-sm text-gray-800">
+                     <span class="font-medium">วันที่สั่งซื้อ:</span> <span class="ml-1" x-text="formatDate(customerOrderDetail?.order_date || '')"></span>
+                   </p>
+                 </div>
+                 <div class="space-y-2">
+                   <p class="text-sm text-gray-800">
+                     <span class="font-medium">จำนวนเงิน:</span> <span class="ml-1 font-bold text-primary-600" x-text="'฿' + parseFloat(customerOrderDetail?.total_amount || 0).toFixed(2)"></span>
+                   </p>
+                   <p class="text-sm text-gray-800">
+                     <span class="font-medium">สถานะ:</span> 
+                     <span 
+                       class="ml-1 px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                       :class="{
+                         'bg-yellow-100 text-yellow-800': customerOrderDetail?.status === 'pending',
+                         'bg-blue-100 text-blue-800': customerOrderDetail?.status === 'processing',
+                         'bg-green-100 text-green-800': customerOrderDetail?.status === 'completed',
+                         'bg-red-100 text-red-800': customerOrderDetail?.status === 'cancelled'
+                       }"
+                       x-text="getStatusText(customerOrderDetail?.status || '')"></span>
+                   </p>
+                 </div>
+               </div>
+             </div>
+           </div>
+           
+           <h4 class="text-base font-medium text-gray-900 mb-3 flex items-center">
+             <i class="fas fa-box text-primary-600 mr-2"></i> รายการสินค้า
+           </h4>
+           <div class="overflow-x-auto bg-white border rounded-lg">
+             <table class="min-w-full divide-y divide-gray-200">
+               <thead>
+                 <tr>
+                   <th class="px-4 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สินค้า</th>
+                   <th class="px-4 py-3 bg-gray-50 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวน</th>
+                   <th class="px-4 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ราคา</th>
+                   <th class="px-4 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">รวม</th>
+                 </tr>
+               </thead>
+               <tbody class="divide-y divide-gray-200">
+                 <template x-for="(item, index) in customerOrderDetail?.items || []" :key="index">
+                   <tr class="hover:bg-gray-50">
+                     <td class="px-4 py-3 text-sm text-gray-900">
+                       <div class="flex items-center">
+                         <div class="h-10 w-10 flex-shrink-0 mr-3">
+                           <img class="h-10 w-10 rounded-md object-cover" :src="item?.image || 'https://via.placeholder.com/40'" :alt="item?.name">
+                         </div>
+                         <div class="font-medium" x-text="item?.name || '-'"></div>
+                       </div>
+                     </td>
+                     <td class="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-900" x-text="item?.quantity || '1'"></td>
+                     <td class="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900" x-text="'฿' + parseFloat(item?.price || 0).toFixed(2)"></td>
+                     <td class="px-4 py-3 whitespace-nowrap text-sm text-right font-medium text-gray-900" x-text="'฿' + ((item?.quantity || 1) * parseFloat(item?.price || 0)).toFixed(2)"></td>
+                   </tr>
+                 </template>
+                 <tr x-show="!customerOrderDetail?.items || customerOrderDetail.items.length === 0">
+                   <td colspan="4" class="px-4 py-4 text-center text-sm text-gray-500">ไม่มีรายการสินค้า</td>
+                 </tr>
+               </tbody>
+               <tfoot>
+                 <tr>
+                   <td colspan="3" class="px-4 py-3 text-right text-sm font-medium text-gray-900 bg-gray-50">รวมทั้งสิ้น:</td>
+                   <td class="px-4 py-3 text-right text-sm font-bold text-primary-600 bg-gray-50" x-text="'฿' + parseFloat(customerOrderDetail?.total_amount || 0).toFixed(2)"></td>
+                 </tr>
+               </tfoot>
+             </table>
+           </div>
+           
+           <!-- คำแนะนำสำหรับลูกค้า -->
+           <div class="mt-6 bg-yellow-50 p-4 rounded-lg" x-show="customerOrderDetail?.status === 'pending'">
+             <div class="flex items-start">
+               <div class="flex-shrink-0">
+                 <i class="fas fa-info-circle text-yellow-500 mt-0.5"></i>
+               </div>
+               <div class="ml-3">
+                 <h3 class="text-sm font-medium text-yellow-800">รอการตรวจสอบ</h3>
+                 <div class="mt-2 text-sm text-yellow-700">
+                   <p>คำสั่งซื้อของคุณอยู่ระหว่างรอการตรวจสอบการชำระเงิน กรุณารอการยืนยันจากทางร้าน</p>
+                 </div>
+               </div>
+             </div>
+           </div>
+           
+           <div class="mt-6 bg-green-50 p-4 rounded-lg" x-show="customerOrderDetail?.status === 'completed'">
+             <div class="flex items-start">
+               <div class="flex-shrink-0">
+                 <i class="fas fa-check-circle text-green-500 mt-0.5"></i>
+               </div>
+               <div class="ml-3">
+                 <h3 class="text-sm font-medium text-green-800">การสั่งซื้อเสร็จสมบูรณ์</h3>
+                 <div class="mt-2 text-sm text-green-700">
+                   <p>คำสั่งซื้อของคุณได้รับการยืนยันแล้ว รหัสดาวน์โหลดได้ถูกส่งไปยังอีเมลของคุณ หรือเข้าไปที่แท็บ "ดาวน์โหลดสินค้า" เพื่อดาวน์โหลดสินค้าของคุณ</p>
+                 </div>
+               </div>
+             </div>
+           </div>
+         </div>
+         <div class="bg-gray-50 px-4 py-3 flex justify-end">
+           <button @click="customerOrderDetailModalOpen = false" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+             <i class="fas fa-times mr-2"></i> ปิด
+           </button>
+         </div>
+       </div>
+     </div>
+   </div>
+ 
+ <!-- Alpine.js -->
+ <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+ <?!= include('javascript'); ?>
+ <?!= include('customer-system'); ?>
+</body>
+</html>
