@@ -418,9 +418,7 @@ function setupSystem() {
   }
 }
 
-/**
- * ฟังก์ชันสำหรับการตั้งค่า sheets ใหม่ในระบบ
- */
+// เพิ่มในฟังก์ชัน setupSheets() เดิม
 function setupSheets() {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var sheets = ss.getSheets();
@@ -429,28 +427,29 @@ function setupSheets() {
   });
 
   // สร้าง sheet Config ถ้ายังไม่มี
-if (sheetNames.indexOf('Config') === -1) {
-  var configSheet = ss.insertSheet('Config');
-  configSheet.appendRow(['config_json']);
-  configSheet.appendRow([JSON.stringify({
-    store_name: 'ร้านค้าดิจิทัลออนไลน์',
-    store_logo: '',
-    store_description: 'ร้านค้าดิจิทัลออนไลน์ครบวงจร',
-    prompt_pay_id: '',
-    payment_qrcode: '',
-    bank_account_info: '',
-    welcome_message: 'ยินดีต้อนรับสู่ร้านค้าดิจิทัลออนไลน์',
-    announcement: '',
-    banner_image: '',
-    telegram_bot_token: '',
-    telegram_chat_id: '',
-    slip_folder_id: SLIP_FOLDER_ID || '',
-    product_image_folder_id: PRODUCT_IMAGE_FOLDER_ID || '',
-    product_file_folder_id: PRODUCT_FILE_FOLDER_ID || '',
-    download_expire_days: 7,
-    max_downloads: 3
-  })]);
-}
+  if (sheetNames.indexOf('Config') === -1) {
+    var configSheet = ss.insertSheet('Config');
+    configSheet.appendRow(['config_json']);
+    configSheet.appendRow([JSON.stringify({
+      store_name: 'ร้านค้าดิจิทัลออนไลน์',
+      store_logo: '',
+      store_description: 'ร้านค้าดิจิทัลออนไลน์ครบวงจร',
+      prompt_pay_id: '',
+      payment_qrcode: '',
+      bank_account_info: '',
+      welcome_message: 'ยินดีต้อนรับสู่ร้านค้าดิจิทัลออนไลน์',
+      announcement: '',
+      banner_image: '',
+      telegram_bot_token: '',
+      telegram_chat_id: '',
+      slip_folder_id: SLIP_FOLDER_ID || '',
+      product_image_folder_id: PRODUCT_IMAGE_FOLDER_ID || '',
+      product_file_folder_id: PRODUCT_FILE_FOLDER_ID || '',
+      download_expire_days: 7,
+      max_downloads: 3,
+      enable_coupons: true  // เพิ่มบรรทัดนี้
+    })]);
+  }
 
   // สร้าง sheet Users ถ้ายังไม่มี
   if (sheetNames.indexOf('Users') === -1) {
@@ -496,6 +495,12 @@ if (sheetNames.indexOf('Config') === -1) {
     downloadsSheet.appendRow(['download_json']);
   }
 
+  // สร้าง sheet Coupons ถ้ายังไม่มี - เพิ่มบรรทัดนี้
+  if (sheetNames.indexOf('Coupons') === -1) {
+    var couponsSheet = ss.insertSheet('Coupons');
+    couponsSheet.appendRow(['coupon_json']);
+  }
+
   // สร้าง sheet Errors ถ้ายังไม่มี
   if (sheetNames.indexOf('Errors') === -1) {
     var errorsSheet = ss.insertSheet('Errors');
@@ -506,6 +511,329 @@ if (sheetNames.indexOf('Config') === -1) {
     status: 'success',
     message: 'สร้าง sheets ทั้งหมดเรียบร้อยแล้ว'
   };
+}
+
+// ===== ฟังก์ชันการจัดการโค้ดส่วนลด ===== (เพิ่มทั้งหมดนี้)
+
+/**
+ * ฟังก์ชันสำหรับดึงข้อมูลโค้ดส่วนลดในรูปแบบ JSON
+ */
+function getCouponsJSON() {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Coupons');
+    var data = sheet.getDataRange().getValues();
+    
+    var coupons = [];
+    
+    // ข้ามแถวแรกที่เป็นหัวตาราง
+    for (var i = 1; i < data.length; i++) {
+      var coupon = JSON.parse(data[i][0]);
+      coupons.push(coupon);
+    }
+    
+    return {
+      status: 'success',
+      coupons: coupons
+    };
+  } catch (error) {
+    logError('getCouponsJSON', error);
+    return {
+      status: 'error',
+      message: 'เกิดข้อผิดพลาดในการดึงข้อมูลโค้ดส่วนลด: ' + error.message
+    };
+  }
+}
+
+/**
+ * ฟังก์ชันสำหรับบันทึกข้อมูลโค้ดส่วนลด
+ */
+function saveCouponJSON(couponData) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Coupons');
+    var data = sheet.getDataRange().getValues();
+    
+    // ถ้าเป็นการสร้างโค้ดส่วนลดใหม่
+    if (!couponData.coupon_id) {
+      couponData.coupon_id = Utilities.getUuid();
+      couponData.created_at = new Date().toISOString();
+      couponData.updated_at = new Date().toISOString();
+      couponData.used_count = 0;
+      couponData.used_by_emails = []; // เพิ่มบรรทัดนี้เพื่อเก็บรายชื่ออีเมลที่ใช้แล้ว
+      
+      sheet.appendRow([JSON.stringify(couponData)]);
+      
+      return {
+        status: 'success',
+        message: 'สร้างโค้ดส่วนลดใหม่เรียบร้อยแล้ว',
+        coupon: couponData
+      };
+    } else {
+      // ถ้าเป็นการอัพเดทโค้ดส่วนลด
+      // ข้ามแถวแรกที่เป็นหัวตาราง
+      for (var i = 1; i < data.length; i++) {
+        var coupon = JSON.parse(data[i][0]);
+        
+        if (coupon.coupon_id === couponData.coupon_id) {
+          couponData.updated_at = new Date().toISOString();
+          // รักษาข้อมูลการใช้งานเดิมไว้
+          if (!couponData.used_by_emails && coupon.used_by_emails) {
+            couponData.used_by_emails = coupon.used_by_emails;
+          }
+          
+          // บันทึกข้อมูลกลับลงใน sheet
+          sheet.getRange(i + 1, 1).setValue(JSON.stringify(couponData));
+          
+          return {
+            status: 'success',
+            message: 'อัพเดทโค้ดส่วนลดเรียบร้อยแล้ว',
+            coupon: couponData
+          };
+        }
+      }
+      
+      return {
+        status: 'error',
+        message: 'ไม่พบโค้ดส่วนลดนี้ในระบบ'
+      };
+    }
+  } catch (error) {
+    logError('saveCouponJSON', error);
+    return {
+      status: 'error',
+      message: 'เกิดข้อผิดพลาดในการบันทึกข้อมูลโค้ดส่วนลด: ' + error.message
+    };
+  }
+}
+
+/**
+ * ฟังก์ชันสำหรับตรวจสอบและใช้โค้ดส่วนลด
+ */
+function validateAndUseCoupon(couponCode, orderAmount, customerEmail) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Coupons');
+    var data = sheet.getDataRange().getValues();
+    
+    // ข้ามแถวแรกที่เป็นหัวตาราง
+    for (var i = 1; i < data.length; i++) {
+      var coupon = JSON.parse(data[i][0]);
+      
+      if (coupon.code === couponCode.toUpperCase()) {
+        // ตรวจสอบสถานะโค้ด
+        if (coupon.status !== 'active') {
+          return {
+            status: 'error',
+            message: 'โค้ดส่วนลดนี้ไม่สามารถใช้งานได้'
+          };
+        }
+        
+        // ตรวจสอบวันหมดอายุ
+        var currentDate = new Date();
+        var expiryDate = new Date(coupon.expiry_date);
+        if (currentDate > expiryDate) {
+          return {
+            status: 'error',
+            message: 'โค้ดส่วนลดนี้หมดอายุแล้ว'
+          };
+        }
+        
+        // ตรวจสอบจำนวนครั้งการใช้งาน
+        if (coupon.usage_limit > 0 && coupon.used_count >= coupon.usage_limit) {
+          return {
+            status: 'error',
+            message: 'โค้ดส่วนลดนี้ถูกใช้งานครบจำนวนที่กำหนดแล้ว'
+          };
+        }
+        
+        // ตรวจสอบว่าอีเมลนี้เคยใช้โค้ดนี้หรือไม่ (เฉพาะเมื่อ one_per_email = true)
+        if (!coupon.used_by_emails) {
+          coupon.used_by_emails = [];
+        }
+        
+        if (coupon.one_per_email && customerEmail && coupon.used_by_emails.indexOf(customerEmail.toLowerCase()) !== -1) {
+          return {
+            status: 'error',
+            message: 'คุณได้ใช้โค้ดส่วนลดนี้ไปแล้ว แต่ละโค้ดใช้ได้เพียง 1 ครั้งต่อ 1 อีเมล'
+          };
+        }
+        
+        // ตรวจสอบยอดขั้นต่ำ
+        if (coupon.minimum_amount > 0 && orderAmount < coupon.minimum_amount) {
+          return {
+            status: 'error',
+            message: 'ยอดสั่งซื้อต้องมีมูลค่าอย่างน้อย ฿' + coupon.minimum_amount.toFixed(2) + ' เพื่อใช้โค้ดนี้'
+          };
+        }
+        
+        // คำนวณส่วนลด
+        var discountAmount = 0;
+        if (coupon.discount_type === 'percentage') {
+          discountAmount = (orderAmount * coupon.discount_value) / 100;
+          if (coupon.max_discount > 0 && discountAmount > coupon.max_discount) {
+            discountAmount = coupon.max_discount;
+          }
+        } else {
+          discountAmount = coupon.discount_value;
+        }
+        
+        // อัพเดทจำนวนครั้งการใช้งานและเพิ่มอีเมลลงในรายการ (เฉพาะเมื่อ one_per_email = true)
+        coupon.used_count++;
+        if (coupon.one_per_email && customerEmail) {
+          coupon.used_by_emails.push(customerEmail.toLowerCase());
+        }
+        
+        sheet.getRange(i + 1, 1).setValue(JSON.stringify(coupon));
+        
+        return {
+          status: 'success',
+          message: 'ใช้โค้ดส่วนลดสำเร็จ',
+          coupon: coupon,
+          discount_amount: discountAmount
+        };
+      }
+    }
+    
+    return {
+      status: 'error',
+      message: 'ไม่พบโค้ดส่วนลดนี้'
+    };
+  } catch (error) {
+    logError('validateAndUseCoupon', error);
+    return {
+      status: 'error',
+      message: 'เกิดข้อผิดพลาดในการตรวจสอบโค้ดส่วนลด: ' + error.message
+    };
+  }
+}
+
+/**
+ * ฟังก์ชันสำหรับตรวจสอบโค้ดส่วนลดโดยไม่ใช้งาน (สำหรับแสดงผล)
+ */
+function validateCoupon(couponCode, orderAmount, customerEmail) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Coupons');
+    var data = sheet.getDataRange().getValues();
+    
+    // ข้ามแถวแรกที่เป็นหัวตาราง
+    for (var i = 1; i < data.length; i++) {
+      var coupon = JSON.parse(data[i][0]);
+      
+      if (coupon.code === couponCode.toUpperCase()) {
+        // ตรวจสอบสถานะโค้ด
+        if (coupon.status !== 'active') {
+          return {
+            status: 'error',
+            message: 'โค้ดส่วนลดนี้ไม่สามารถใช้งานได้'
+          };
+        }
+        
+        // ตรวจสอบวันหมดอายุ
+        var currentDate = new Date();
+        var expiryDate = new Date(coupon.expiry_date);
+        if (currentDate > expiryDate) {
+          return {
+            status: 'error',
+            message: 'โค้ดส่วนลดนี้หมดอายุแล้ว'
+          };
+        }
+        
+        // ตรวจสอบจำนวนครั้งการใช้งาน
+        if (coupon.usage_limit > 0 && coupon.used_count >= coupon.usage_limit) {
+          return {
+            status: 'error',
+            message: 'โค้ดส่วนลดนี้ถูกใช้งานครบจำนวนที่กำหนดแล้ว'
+          };
+        }
+        
+        // ตรวจสอบว่าอีเมลนี้เคยใช้โค้ดนี้หรือไม่ (เฉพาะเมื่อ one_per_email = true)
+        if (coupon.one_per_email && customerEmail && coupon.used_by_emails && coupon.used_by_emails.indexOf(customerEmail.toLowerCase()) !== -1) {
+          return {
+            status: 'error',
+            message: 'คุณได้ใช้โค้ดส่วนลดนี้ไปแล้ว แต่ละโค้ดใช้ได้เพียง 1 ครั้งต่อ 1 อีเมล'
+          };
+        }
+        
+        // ตรวจสอบยอดขั้นต่ำ
+        if (coupon.minimum_amount > 0 && orderAmount < coupon.minimum_amount) {
+          return {
+            status: 'error',
+            message: 'ยอดสั่งซื้อต้องมีมูลค่าอย่างน้อย ฿' + coupon.minimum_amount.toFixed(2) + ' เพื่อใช้โค้ดนี้'
+          };
+        }
+        
+           // คำนวณส่วนลด
+    var discountAmount = 0;
+    if (coupon.discount_type === 'percentage') {
+      discountAmount = (orderAmount * coupon.discount_value) / 100;
+      if (coupon.max_discount > 0 && discountAmount > coupon.max_discount) {
+        discountAmount = coupon.max_discount;
+      }
+    } else {
+      discountAmount = coupon.discount_value;
+    }
+    
+    discountAmount = parseFloat(discountAmount) || 0;
+
+return {
+  status: 'success',
+  message: 'ใช้โค้ดส่วนลดสำเร็จ',
+  coupon: coupon,
+  discount_amount: discountAmount // ส่งเป็นตัวเลข
+};
+      }
+    }
+    
+    return {
+      status: 'error',
+      message: 'ไม่พบโค้ดส่วนลดนี้'
+    };
+    } catch (error) {
+    logError('validateCoupon', error);
+    return {
+      status: 'error',
+      message: 'เกิดข้อผิดพลาดในการตรวจสอบโค้ดส่วนลด: ' + error.message
+    };
+  }
+}
+
+/**
+ * ฟังก์ชันสำหรับลบโค้ดส่วนลด
+ */
+function deleteCouponJSON(couponId) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Coupons');
+    var data = sheet.getDataRange().getValues();
+    
+    // ข้ามแถวแรกที่เป็นหัวตาราง
+    for (var i = 1; i < data.length; i++) {
+      var coupon = JSON.parse(data[i][0]);
+      
+      if (coupon.coupon_id === couponId) {
+        // ลบข้อมูลออกจาก sheet
+        sheet.deleteRow(i + 1);
+        
+        return {
+          status: 'success',
+          message: 'ลบโค้ดส่วนลดเรียบร้อยแล้ว'
+        };
+      }
+    }
+    
+    return {
+      status: 'error',
+      message: 'ไม่พบโค้ดส่วนลดนี้ในระบบ'
+    };
+  } catch (error) {
+    logError('deleteCouponJSON', error);
+    return {
+      status: 'error',
+      message: 'เกิดข้อผิดพลาดในการลบโค้ดส่วนลด: ' + error.message
+    };
+  }
 }
 
 /**
@@ -3985,5 +4313,26 @@ function searchOrderByQuery(query) {
       status: 'error',
       message: 'เกิดข้อผิดพลาดในการค้นหาคำสั่งซื้อ: ' + error.message
     };
+  }
+}
+
+// เพิ่มฟังก์ชันนี้ใน code.gs เพื่อทดสอบ
+function testCouponsSheet() {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Coupons');
+    
+    if (!sheet) {
+      // สร้าง sheet ถ้ายังไม่มี
+      sheet = ss.insertSheet('Coupons');
+      sheet.appendRow(['coupon_json']);
+      return 'สร้าง sheet Coupons แล้ว';
+    }
+    
+    var data = sheet.getDataRange().getValues();
+    return 'Sheet Coupons มีอยู่แล้ว จำนวนแถว: ' + data.length;
+    
+  } catch (error) {
+    return 'Error: ' + error.message;
   }
 }
