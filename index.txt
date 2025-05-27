@@ -2224,17 +2224,21 @@
                   สูงสุด ฿<span x-text="parseFloat(coupon?.max_discount || 0).toFixed(2)"></span>
                 </div>
               </td>
-              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                <div class="flex items-center space-x-1">
-                  <span x-text="(coupon?.used_count || 0)"></span>
-                  <span class="text-gray-400">/</span>
-                  <span x-text="(coupon?.usage_limit > 0 ? coupon?.usage_limit : '∞')"></span>
-                </div>
-                <!-- แสดงจำนวนอีเมลที่ใช้แล้ว -->
-                <div class="text-xs text-gray-500">
-                  <span x-text="(coupon?.used_by_emails?.length || 0) + ' อีเมล'"></span>
-                </div>
-              </td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+  <div class="flex items-center space-x-1">
+    <span x-text="(coupon?.used_count || 0)"></span>
+    <span class="text-gray-400">/</span>
+    <span x-text="(coupon?.usage_limit > 0 ? coupon?.usage_limit : '∞')"></span>
+  </div>
+  <!-- แสดงจำนวนอีเมลที่ใช้แล้ว -->
+  <div class="text-xs text-gray-500">
+    <span x-text="(coupon?.used_by_emails?.length || 0) + ' อีเมล'"></span>
+    <!-- แสดงว่าจำกัดต่ออีเมลหรือไม่ -->
+    <span x-show="coupon?.one_per_email" class="inline-block bg-orange-100 text-orange-800 px-1 py-0.5 rounded text-xs ml-1">
+      1 ครั้ง/อีเมล
+    </span>
+  </div>
+</td>
               <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                 <div x-show="coupon?.minimum_amount > 0" class="text-xs">
                   ขั้นต่ำ ฿<span x-text="parseFloat(coupon?.minimum_amount || 0).toFixed(2)"></span>
@@ -2264,21 +2268,25 @@
                 </div>
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                <div class="flex space-x-2">
-                  <button @click="showCouponDetail(coupon)" class="text-indigo-600 hover:text-indigo-800 p-1" title="ดูรายละเอียด">
-                    <i class="fas fa-eye"></i>
-                  </button>
-                  <button @click="showCouponModal(coupon)" class="text-primary-600 hover:text-primary-800 p-1" title="แก้ไขโค้ด">
-                    <i class="fas fa-edit"></i>
-                  </button>
-                  <button @click="copyCouponCode(coupon?.code)" class="text-gray-600 hover:text-gray-800 p-1" title="คัดลอกโค้ด">
-                    <i class="fas fa-copy"></i>
-                  </button>
-                  <button @click="deleteCoupon(coupon?.coupon_id)" class="text-red-600 hover:text-red-800 p-1" title="ลบโค้ด">
-                    <i class="fas fa-trash"></i>
-                  </button>
-                </div>
-              </td>
+  <div class="flex space-x-2">
+    <button @click="showCouponDetail(coupon)" class="text-indigo-600 hover:text-indigo-800 p-1" title="ดูรายละเอียด">
+      <i class="fas fa-eye"></i>
+    </button>
+    <button @click="showCouponModal(coupon)" class="text-primary-600 hover:text-primary-800 p-1" title="แก้ไขโค้ด">
+      <i class="fas fa-edit"></i>
+    </button>
+    <button @click="copyCouponCode(coupon?.code)" class="text-gray-600 hover:text-gray-800 p-1" title="คัดลอกโค้ด">
+      <i class="fas fa-copy"></i>
+    </button>
+    <!-- เพิ่มปุ่มรีเซ็ต -->
+    <button @click="resetCouponUsage(coupon?.coupon_id)" class="text-orange-600 hover:text-orange-800 p-1" title="รีเซ็ตการใช้งาน" x-show="(coupon?.used_count || 0) > 0">
+      <i class="fas fa-undo"></i>
+    </button>
+    <button @click="deleteCoupon(coupon?.coupon_id)" class="text-red-600 hover:text-red-800 p-1" title="ลบโค้ด">
+      <i class="fas fa-trash"></i>
+    </button>
+  </div>
+</td>
             </tr>
           </template>
           <tr x-show="coupons.length === 0">
@@ -2343,37 +2351,438 @@
             </div>
           </div>
           
-          <!-- ข้อมูลส่วนลด -->
-          <div class="bg-gray-50 p-4 rounded-lg">
-            <h4 class="text-base font-medium text-gray-900 mb-3 flex items-center">
-              <i class="fas fa-percentage text-primary-600 mr-2"></i> ข้อมูลส่วนลด
-            </h4>
-            <div class="space-y-2">
-              <p class="text-sm text-gray-800">
-                <span class="font-medium">ประเภท:</span> 
-                <span 
-                  class="ml-1 px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
-                  :class="currentCouponDetail?.discount_type === 'percentage' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'"
-                  x-text="currentCouponDetail?.discount_type === 'percentage' ? 'เปอร์เซ็นต์' : 'จำนวนเงิน'"></span>
-              </p>
-              <p class="text-sm text-gray-800">
-                <span class="font-medium">มูลค่าส่วนลด:</span> 
-                <span class="ml-1 font-bold text-primary-600" 
-                      x-text="currentCouponDetail?.discount_type === 'percentage' ? 
-                        currentCouponDetail?.discount_value + '%' : 
-                        '฿' + parseFloat(currentCouponDetail?.discount_value || 0).toFixed(2)"></span>
-              </p>
-              <p class="text-sm text-gray-800" x-show="currentCouponDetail?.max_discount > 0">
-                <span class="font-medium">ส่วนลดสูงสุด:</span> 
-                <span class="ml-1" x-text="'฿' + parseFloat(currentCouponDetail?.max_discount || 0).toFixed(2)"></span>
-              </p>
-              <p class="text-sm text-gray-800" x-show="currentCouponDetail?.minimum_amount > 0">
-                <span class="font-medium">ยอดขั้นต่ำ:</span> 
-                <span class="ml-1" x-text="'฿' + parseFloat(currentCouponDetail?.minimum_amount || 0).toFixed(2)"></span>
-              </p>
+       ดีครับ! ให้เพิ่มตัวเลือกให้ผู้ดูแลเลือกได้ว่าโค้ดแต่ละตัวจะใช้ได้แค่ครั้งเดียวต่ออีเมลหรือไม่ มาแก้ไขกันครับ
+1. แก้ไขไฟล์ index.txt - เพิ่ม Checkbox ในฟอร์มโค้ดส่วนลด
+ในส่วน Modal เพิ่มโค้ดส่วนลด ให้เพิ่มตัวเลือกนี้:
+html<!-- Coupon Modal -->
+<div x-show="couponModalOpen" class="fixed inset-0 overflow-y-auto z-50" x-cloak>
+  <div class="flex items-center justify-center min-h-screen p-4 text-center">
+    <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+      <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+    </div>
+    
+    <div class="bg-white rounded-xl overflow-hidden shadow-xl transform transition-all max-w-2xl w-full">
+      <div class="bg-primary-600 px-4 py-3 border-b flex justify-between items-center">
+        <h3 class="text-lg font-medium text-white" x-text="editingCoupon ? 'แก้ไขโค้ดส่วนลด' : 'เพิ่มโค้ดส่วนลดใหม่'"></h3>
+        <button @click="couponModalOpen = false" class="text-white hover:text-gray-200">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="p-6">
+        <form @submit.prevent="saveCoupon">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- คอลัมน์ซ้าย -->
+            <div class="space-y-4">
+              <div>
+                <label for="couponCode" class="block text-sm font-medium text-gray-700 mb-1">รหัสโค้ด <span class="text-red-500">*</span></label>
+                <input type="text" id="couponCode" x-model="couponForm.code" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 uppercase" required>
+                <p class="text-xs text-gray-500 mt-1">ตัวอักษรจะถูกแปลงเป็นตัวใหญ่อัตโนมัติ</p>
+              </div>
+              
+              <div>
+                <label for="couponName" class="block text-sm font-medium text-gray-700 mb-1">ชื่อโค้ด <span class="text-red-500">*</span></label>
+                <input type="text" id="couponName" x-model="couponForm.name" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" required>
+              </div>
+              
+              <div>
+                <label for="couponDescription" class="block text-sm font-medium text-gray-700 mb-1">คำอธิบาย</label>
+                <textarea id="couponDescription" x-model="couponForm.description" rows="3" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"></textarea>
+              </div>
+              
+              <div>
+                <label for="couponType" class="block text-sm font-medium text-gray-700 mb-1">ประเภทส่วนลด</label>
+                <select id="couponType" x-model="couponForm.discount_type" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                  <option value="percentage">เปอร์เซ็นต์ (%)</option>
+                  <option value="fixed">จำนวนเงิน (บาท)</option>
+                </select>
+              </div>
+            </div>
+            
+            <!-- คอลัมน์ขวา -->
+            <div class="space-y-4">
+              <div>
+                <label for="couponValue" class="block text-sm font-medium text-gray-700 mb-1">
+                  มูลค่าส่วนลด <span class="text-red-500">*</span>
+                  <span x-text="couponForm.discount_type === 'percentage' ? '(%)' : '(บาท)'"></span>
+                </label>
+                <input type="number" id="couponValue" x-model="couponForm.discount_value" 
+                       :min="couponForm.discount_type === 'percentage' ? '1' : '1'" 
+                       :max="couponForm.discount_type === 'percentage' ? '100' : ''"
+                       step="0.01" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" required>
+              </div>
+              
+              <div x-show="couponForm.discount_type === 'percentage'">
+                <label for="couponMaxDiscount" class="block text-sm font-medium text-gray-700 mb-1">ส่วนลดสูงสุด (บาท)</label>
+                <input type="number" id="couponMaxDiscount" x-model="couponForm.max_discount" min="0" step="0.01" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <p class="text-xs text-gray-500 mt-1">ใส่ 0 หากไม่ต้องการจำกัด</p>
+              </div>
+              
+              <div>
+                <label for="couponMinAmount" class="block text-sm font-medium text-gray-700 mb-1">ยอดขั้นต่ำ (บาท)</label>
+                <input type="number" id="couponMinAmount" x-model="couponForm.minimum_amount" min="0" step="0.01" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <p class="text-xs text-gray-500 mt-1">ใส่ 0 หากไม่ต้องการจำกัด</p>
+              </div>
+              
+              <div>
+                <label for="couponUsageLimit" class="block text-sm font-medium text-gray-700 mb-1">จำนวนครั้งที่ใช้ได้</label>
+                <input type="number" id="couponUsageLimit" x-model="couponForm.usage_limit" min="0" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <p class="text-xs text-gray-500 mt-1">ใส่ 0 หากไม่ต้องการจำกัด</p>
+              </div>
+              
+              <!-- เพิ่มตัวเลือกการจำกัดต่ออีเมล -->
+              <div class="bg-blue-50 p-3 rounded-lg">
+                <label class="flex items-start">
+                  <input type="checkbox" x-model="couponForm.one_per_email" class="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 mt-0.5">
+                  <div class="ml-2">
+                    <span class="text-sm font-medium text-gray-700">โค้ดใช้ได้เพียง 1 ครั้งต่อ 1 อีเมล</span>
+                    <p class="text-xs text-gray-500 mt-1">หากเลือก อีเมลเดียวกันจะไม่สามารถใช้โค้ดนี้ซ้ำได้ แม้ว่าจะยังไม่ครบจำนวนครั้งที่กำหนด</p>
+                  </div>
+                </label>
+              </div>
+              
+              <div>
+                <label for="couponExpiry" class="block text-sm font-medium text-gray-700 mb-1">วันหมดอายุ</label>
+                <input type="date" id="couponExpiry" x-model="couponForm.expiry_date" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+              </div>
+              
+              <div>
+                <label for="couponStatus" class="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
+                <select id="couponStatus" x-model="couponForm.status" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                  <option value="active">เปิดใช้งาน</option>
+                  <option value="inactive">ปิดใช้งาน</option>
+                </select>
+              </div>
             </div>
           </div>
-        </div>
+          
+          <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+            <button type="button" @click="couponModalOpen = false" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-5 py-2 rounded-md text-sm font-medium transition-colors">
+              <i class="fas fa-times mr-2"></i> ยกเลิก
+            </button>
+            <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2 rounded-md text-sm font-medium transition-colors">
+              <i class="fas fa-save mr-2"></i> บันทึก
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+2. แก้ไขไฟล์ javascript.js - เพิ่มฟิลด์ในฟอร์ม
+ในส่วนฟังก์ชัน showCouponModal:
+javascriptshowCouponModal(coupon = null) {
+  this.editingCoupon = !!coupon;
+  
+  if (coupon) {
+    this.couponForm = {
+      coupon_id: coupon.coupon_id,
+      code: coupon.code,
+      name: coupon.name,
+      description: coupon.description,
+      discount_type: coupon.discount_type,
+      discount_value: coupon.discount_value,
+      max_discount: coupon.max_discount || 0,
+      minimum_amount: coupon.minimum_amount || 0,
+      usage_limit: coupon.usage_limit || 0,
+      expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split('T')[0] : '',
+      status: coupon.status,
+      one_per_email: coupon.one_per_email || false // เพิ่มบรรทัดนี้
+    };
+  } else {
+    this.couponForm = {
+      coupon_id: '',
+      code: '',
+      name: '',
+      description: '',
+      discount_type: 'percentage',
+      discount_value: 0,
+      max_discount: 0,
+      minimum_amount: 0,
+      usage_limit: 0,
+      expiry_date: '',
+      status: 'active',
+      one_per_email: false // เพิ่มบรรทัดนี้
+    };
+  }
+  
+  this.couponModalOpen = true;
+},
+3. แก้ไขไฟล์ code.gs - ปรับฟังก์ชันตรวจสอบ
+แก้ไขฟังก์ชัน validateAndUseCoupon และ validateCoupon ให้ตรวจสอบฟิลด์ one_per_email:
+javascript/**
+ * ฟังก์ชันสำหรับตรวจสอบและใช้โค้ดส่วนลด
+ */
+function validateAndUseCoupon(couponCode, orderAmount, customerEmail) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Coupons');
+    var data = sheet.getDataRange().getValues();
+    
+    // ข้ามแถวแรกที่เป็นหัวตาราง
+    for (var i = 1; i < data.length; i++) {
+      var coupon = JSON.parse(data[i][0]);
+      
+      if (coupon.code === couponCode.toUpperCase()) {
+        // ตรวจสอบสถานะโค้ด
+        if (coupon.status !== 'active') {
+          return {
+            status: 'error',
+            message: 'โค้ดส่วนลดนี้ไม่สามารถใช้งานได้'
+          };
+        }
+        
+        // ตรวจสอบวันหมดอายุ
+        if (coupon.expiry_date) {
+          var currentDate = new Date();
+          var expiryDate = new Date(coupon.expiry_date);
+          if (currentDate > expiryDate) {
+            return {
+              status: 'error',
+              message: 'โค้ดส่วนลดนี้หมดอายุแล้ว'
+            };
+          }
+        }
+        
+        // เริ่มต้น used_by_emails หากยังไม่มี
+        if (!coupon.used_by_emails || !Array.isArray(coupon.used_by_emails)) {
+          coupon.used_by_emails = [];
+        }
+        
+        // เริ่มต้น used_count หากยังไม่มี
+        if (!coupon.used_count) {
+          coupon.used_count = 0;
+        }
+        
+        // ตรวจสอบการจำกัดต่ออีเมลเฉพาะเมื่อมีการตั้งค่า one_per_email = true
+        if (coupon.one_per_email === true && customerEmail) {
+          var emailLower = customerEmail.toLowerCase();
+          if (coupon.used_by_emails.indexOf(emailLower) !== -1) {
+            return {
+              status: 'error',
+              message: 'คุณได้ใช้โค้ดส่วนลดนี้ไปแล้ว โค้ดนี้ใช้ได้เพียง 1 ครั้งต่อ 1 อีเมล'
+            };
+          }
+        }
+        
+        // ตรวจสอบจำนวนครั้งการใช้งาน
+        if (coupon.usage_limit > 0 && coupon.used_count >= coupon.usage_limit) {
+          return {
+            status: 'error',
+            message: 'โค้ดส่วนลดนี้ถูกใช้งานครบจำนวนที่กำหนดแล้ว'
+          };
+        }
+        
+        // ตรวจสอบยอดขั้นต่ำ
+        if (coupon.minimum_amount > 0 && orderAmount < coupon.minimum_amount) {
+          return {
+            status: 'error',
+            message: 'ยอดสั่งซื้อต้องมีมูลค่าอย่างน้อย ฿' + coupon.minimum_amount.toFixed(2) + ' เพื่อใช้โค้ดนี้'
+          };
+        }
+        
+        // คำนวณส่วนลด
+        var discountAmount = 0;
+        if (coupon.discount_type === 'percentage') {
+          discountAmount = (orderAmount * coupon.discount_value) / 100;
+          if (coupon.max_discount > 0 && discountAmount > coupon.max_discount) {
+            discountAmount = coupon.max_discount;
+          }
+        } else {
+          discountAmount = coupon.discount_value;
+        }
+        
+        // อัพเดทจำนวนครั้งการใช้งาน
+        coupon.used_count = coupon.used_count + 1;
+        
+        // เพิ่มอีเมลลงในรายการเฉพาะเมื่อมีการตั้งค่า one_per_email = true
+        if (coupon.one_per_email === true && customerEmail) {
+          coupon.used_by_emails.push(customerEmail.toLowerCase());
+        }
+        
+        // บันทึกข้อมูลโค้ดส่วนลดที่อัพเดทแล้ว
+        sheet.getRange(i + 1, 1).setValue(JSON.stringify(coupon));
+        
+        return {
+          status: 'success',
+          message: 'ใช้โค้ดส่วนลดสำเร็จ',
+          coupon: coupon,
+          discount_amount: discountAmount
+        };
+      }
+    }
+    
+    return {
+      status: 'error',
+      message: 'ไม่พบโค้ดส่วนลดนี้'
+    };
+  } catch (error) {
+    logError('validateAndUseCoupon', error);
+    return {
+      status: 'error',
+      message: 'เกิดข้อผิดพลาดในการตรวจสอบโค้ดส่วนลด: ' + error.message
+    };
+  }
+}
+
+/**
+ * ฟังก์ชันสำหรับตรวจสอบโค้ดส่วนลดโดยไม่ใช้งาน (สำหรับแสดงผล)
+ */
+function validateCoupon(couponCode, orderAmount, customerEmail) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Coupons');
+    var data = sheet.getDataRange().getValues();
+    
+    // ข้ามแถวแรกที่เป็นหัวตาราง
+    for (var i = 1; i < data.length; i++) {
+      var coupon = JSON.parse(data[i][0]);
+      
+      if (coupon.code === couponCode.toUpperCase()) {
+        // ตรวจสอบสถานะโค้ด
+        if (coupon.status !== 'active') {
+          return {
+            status: 'error',
+            message: 'โค้ดส่วนลดนี้ไม่สามารถใช้งานได้'
+          };
+        }
+        
+        // ตรวจสอบวันหมดอายุ
+        if (coupon.expiry_date) {
+          var currentDate = new Date();
+          var expiryDate = new Date(coupon.expiry_date);
+          if (currentDate > expiryDate) {
+            return {
+              status: 'error',
+              message: 'โค้ดส่วนลดนี้หมดอายุแล้ว'
+            };
+          }
+        }
+        
+        // เริ่มต้น used_by_emails หากยังไม่มี
+        if (!coupon.used_by_emails || !Array.isArray(coupon.used_by_emails)) {
+          coupon.used_by_emails = [];
+        }
+        
+        // เริ่มต้น used_count หากยังไม่มี
+        if (!coupon.used_count) {
+          coupon.used_count = 0;
+        }
+        
+        // ตรวจสอบการจำกัดต่ออีเมลเฉพาะเมื่อมีการตั้งค่า one_per_email = true
+        if (coupon.one_per_email === true && customerEmail) {
+          var emailLower = customerEmail.toLowerCase();
+          if (coupon.used_by_emails.indexOf(emailLower) !== -1) {
+            return {
+              status: 'error',
+              message: 'คุณได้ใช้โค้ดส่วนลดนี้ไปแล้ว โค้ดนี้ใช้ได้เพียง 1 ครั้งต่อ 1 อีเมล'
+            };
+          }
+        }
+        
+        // ตรวจสอบจำนวนครั้งการใช้งาน
+        if (coupon.usage_limit > 0 && coupon.used_count >= coupon.usage_limit) {
+          return {
+            status: 'error',
+            message: 'โค้ดส่วนลดนี้ถูกใช้งานครบจำนวนที่กำหนดแล้ว'
+          };
+        }
+        
+        // ตรวจสอบยอดขั้นต่ำ
+        if (coupon.minimum_amount > 0 && orderAmount < coupon.minimum_amount) {
+          return {
+            status: 'error',
+            message: 'ยอดสั่งซื้อต้องมีมูลค่าอย่างน้อย ฿' + coupon.minimum_amount.toFixed(2) + ' เพื่อใช้โค้ดนี้'
+          };
+        }
+        
+        // คำนวณส่วนลด
+        var discountAmount = 0;
+        if (coupon.discount_type === 'percentage') {
+          discountAmount = (orderAmount * coupon.discount_value) / 100;
+          if (coupon.max_discount > 0 && discountAmount > coupon.max_discount) {
+            discountAmount = coupon.max_discount;
+          }
+        } else {
+          discountAmount = coupon.discount_value;
+        }
+        
+        discountAmount = parseFloat(discountAmount) || 0;
+
+        return {
+          status: 'success',
+          message: 'ใช้โค้ดส่วนลดได้',
+          coupon: coupon,
+          discount_amount: discountAmount
+        };
+      }
+    }
+    
+    return {
+      status: 'error',
+      message: 'ไม่พบโค้ดส่วนลดนี้'
+    };
+  } catch (error) {
+    logError('validateCoupon', error);
+    return {
+      status: 'error',
+      message: 'เกิดข้อผิดพลาดในการตรวจสอบโค้ดส่วนลด: ' + error.message
+    };
+  }
+}
+4. เพิ่มคอลัมน์แสดงการตั้งค่าในตาราง
+ในตารางโค้ดส่วนลดให้เพิ่มการแสดงว่าโค้ดนั้นจำกัดต่ออีเมลหรือไม่:
+html<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+  <div class="flex items-center space-x-1">
+    <span x-text="(coupon?.used_count || 0)"></span>
+    <span class="text-gray-400">/</span>
+    <span x-text="(coupon?.usage_limit > 0 ? coupon?.usage_limit : '∞')"></span>
+  </div>
+  <!-- แสดงจำนวนอีเมลที่ใช้แล้ว -->
+  <div class="text-xs text-gray-500">
+    <span x-text="(coupon?.used_by_emails?.length || 0) + ' อีเมล'"></span>
+    <!-- แสดงว่าจำกัดต่ออีเมลหรือไม่ -->
+    <span x-show="coupon?.one_per_email" class="inline-block bg-orange-100 text-orange-800 px-1 py-0.5 rounded text-xs ml-1">
+      1 ครั้ง/อีเมล
+    </span>
+  </div>
+</td>
+5. ปรับปรุง Modal รายละเอียดโค้ดส่วนลด
+เพิ่มการแสดงข้อมูลการตั้งค่าจำกัดต่ออีเมล:
+html<!-- ข้อมูลส่วนลด -->
+<div class="bg-gray-50 p-4 rounded-lg">
+  <h4 class="text-base font-medium text-gray-900 mb-3 flex items-center">
+    <i class="fas fa-percentage text-primary-600 mr-2"></i> ข้อมูลส่วนลด
+  </h4>
+  <div class="space-y-2">
+    <p class="text-sm text-gray-800">
+      <span class="font-medium">ประเภท:</span> 
+      <span 
+        class="ml-1 px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+        :class="currentCouponDetail?.discount_type === 'percentage' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'"
+        x-text="currentCouponDetail?.discount_type === 'percentage' ? 'เปอร์เซ็นต์' : 'จำนวนเงิน'"></span>
+    </p>
+    <p class="text-sm text-gray-800">
+      <span class="font-medium">มูลค่าส่วนลด:</span> 
+      <span class="ml-1 font-bold text-primary-600" 
+            x-text="currentCouponDetail?.discount_type === 'percentage' ? 
+              currentCouponDetail?.discount_value + '%' : 
+              '฿' + parseFloat(currentCouponDetail?.discount_value || 0).toFixed(2)"></span>
+    </p>
+    <p class="text-sm text-gray-800" x-show="currentCouponDetail?.max_discount > 0">
+      <span class="font-medium">ส่วนลดสูงสุด:</span> 
+      <span class="ml-1" x-text="'฿' + parseFloat(currentCouponDetail?.max_discount || 0).toFixed(2)"></span>
+    </p>
+    <p class="text-sm text-gray-800" x-show="currentCouponDetail?.minimum_amount > 0">
+      <span class="font-medium">ยอดขั้นต่ำ:</span> 
+      <span class="ml-1" x-text="'฿' + parseFloat(currentCouponDetail?.minimum_amount || 0).toFixed(2)"></span>
+    </p>
+    <!-- เพิ่มการแสดงการตั้งค่าจำกัดต่ออีเมล -->
+    <p class="text-sm text-gray-800">
+      <span class="font-medium">การจำกัดต่ออีเมล:</span> 
+      <span class="ml-1" 
+            :class="currentCouponDetail?.one_per_email ? 'text-orange-600 font-semibold' : 'text-gray-600'"
+            x-text="currentCouponDetail?.one_per_email ? 'ใช้ได้เพียง 1 ครั้งต่อ 1 อีเมล' : 'ไม่จำกัด'"></span>
+    </p>
         
         <!-- ข้อมูลการใช้งาน -->
         <div class="mt-6 bg-gray-50 p-4 rounded-lg">
@@ -2396,14 +2805,14 @@
           </div>
           
           <!-- รายชื่ออีเมลที่ใช้แล้ว -->
-          <div x-show="currentCouponDetail?.used_by_emails && currentCouponDetail?.used_by_emails.length > 0" class="mt-4">
-            <h5 class="text-sm font-medium text-gray-700 mb-2">อีเมลที่ใช้โค้ดแล้ว:</h5>
-            <div class="max-h-32 overflow-y-auto bg-white p-2 rounded border">
-              <template x-for="email in currentCouponDetail?.used_by_emails" :key="email">
-                <div class="text-xs text-gray-600 py-1 border-b last:border-b-0" x-text="email"></div>
-              </template>
-            </div>
-          </div>
+<div x-show="currentCouponDetail?.used_by_emails && currentCouponDetail?.used_by_emails.length > 0" class="mt-4">
+  <h5 class="text-sm font-medium text-gray-700 mb-2">อีเมลที่ใช้โค้ดแล้ว:</h5>
+  <div class="max-h-32 overflow-y-auto bg-white p-2 rounded border">
+    <template x-for="email in currentCouponDetail?.used_by_emails" :key="email">
+      <div class="text-xs text-gray-600 py-1 border-b last:border-b-0" x-text="email"></div>
+    </template>
+  </div>
+</div>
         </div>
         
         <!-- ข้อมูลวันที่ -->
@@ -3443,6 +3852,17 @@
                 <label for="couponUsageLimit" class="block text-sm font-medium text-gray-700 mb-1">จำนวนครั้งที่ใช้ได้</label>
                 <input type="number" id="couponUsageLimit" x-model="couponForm.usage_limit" min="0" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
                 <p class="text-xs text-gray-500 mt-1">ใส่ 0 หากไม่ต้องการจำกัด</p>
+              </div>
+              
+              <!-- เพิ่มตัวเลือกการจำกัดต่ออีเมล -->
+              <div class="bg-blue-50 p-3 rounded-lg">
+                <label class="flex items-start">
+                  <input type="checkbox" x-model="couponForm.one_per_email" class="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 mt-0.5">
+                  <div class="ml-2">
+                    <span class="text-sm font-medium text-gray-700">โค้ดใช้ได้เพียง 1 ครั้งต่อ 1 อีเมล</span>
+                    <p class="text-xs text-gray-500 mt-1">หากเลือก อีเมลเดียวกันจะไม่สามารถใช้โค้ดนี้ซ้ำได้ แม้ว่าจะยังไม่ครบจำนวนครั้งที่กำหนด</p>
+                  </div>
+                </label>
               </div>
               
               <div>
