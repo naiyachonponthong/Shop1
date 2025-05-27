@@ -783,6 +783,41 @@ downloadDirectly(token) {
   }
 },
 
+// เพิ่มฟังก์ชันนี้ในส่วน methods
+resetCouponUsage(couponId) {
+  Swal.fire({
+    title: 'รีเซ็ตการใช้งานโค้ด',
+    text: 'คุณต้องการรีเซ็ตการใช้งานโค้ดนี้หรือไม่? จะลบรายชื่ออีเมลทั้งหมดที่เคยใช้โค้ดนี้',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'รีเซ็ต',
+    cancelButtonText: 'ยกเลิก',
+    confirmButtonColor: '#f59e0b'
+  }).then(result => {
+    if (result.isConfirmed) {
+      this.showLoading('กำลังรีเซ็ตการใช้งานโค้ด...');
+      
+      google.script.run
+        .withSuccessHandler(result => {
+          this.hideLoading();
+          
+          if (result.status === 'success') {
+            this.loadCoupons();
+            this.showAlert('success', 'รีเซ็ตการใช้งานโค้ดสำเร็จ');
+          } else {
+            this.showAlert('error', 'ข้อผิดพลาด', result.message);
+          }
+        })
+        .withFailureHandler(error => {
+          this.hideLoading();
+          console.error('Error resetting coupon usage:', error);
+          this.showAlert('error', 'ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการรีเซ็ตการใช้งานโค้ด');
+        })
+        .resetCouponUsage(couponId);
+    }
+  });
+},
+
 loadCoupons() {
   console.log('Loading coupons...'); // เพิ่มบรรทัดนี้
   
