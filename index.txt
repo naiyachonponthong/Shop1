@@ -811,54 +811,111 @@
              </div>
            </div>
            
-           <!-- สรุปคำสั่งซื้อ -->
-           <div class="bg-white rounded-xl shadow-soft p-6 h-fit">
-             <h2 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
-               <i class="fas fa-shopping-basket text-primary-600 mr-2"></i> สรุปรายการสั่งซื้อ
-             </h2>
-             
-             <div x-show="cart.length === 0" class="text-center py-8 text-gray-500">
-               <i class="fas fa-shopping-cart text-gray-300 text-3xl mb-2"></i>
-               <p>ไม่มีสินค้าในตะกร้า</p>
-               <button @click="showPage('products')" class="mt-4 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md text-sm">
-                 เลือกซื้อสินค้า
-               </button>
-             </div>
-             
-             <div x-show="cart.length > 0" class="space-y-4">
-               <template x-for="(item, index) in cart" :key="index">
-                 <div class="flex justify-between pb-3 border-b">
-                   <div class="flex items-start">
-                     <img :src="item?.image || 'https://via.placeholder.com/50'" class="w-10 h-10 rounded object-cover mr-3">
-                     <div>
-                       <p class="text-sm font-medium text-gray-900" x-text="item?.name || ''"></p>
-                       <p class="text-xs text-gray-500" x-text="'x' + (item?.quantity || 1)"></p>
-                     </div>
-                   </div>
-                   <p class="text-sm font-medium text-gray-900" x-text="'฿' + ((parseFloat(item?.price || 0) * (item?.quantity || 1)).toFixed(2))"></p>
-                 </div>
-               </template>
-               
-               <div class="flex justify-between pt-3 border-t">
-                 <p class="font-medium text-gray-900">รวมทั้งสิ้น</p>
-                 <p class="font-bold text-primary-600 text-lg" x-text="'฿' + calculateTotal().toFixed(2)"></p>
-               </div>
-               
-               <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-600 my-3">
-                 <div class="flex items-center">
-                   <i class="fas fa-info-circle text-primary-600 mr-2"></i>
-                   <p>สินค้าดิจิทัลจะส่งรหัสดาวน์โหลดทางอีเมลหลังจากชำระเงิน</p>
-                 </div>
-               </div>
-               
-               <button 
-                 x-show="!orderCreated"
-                 @click="createOrder"
-                 class="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 px-4 rounded-md text-base font-medium transition-colors shadow-md">
-                 <i class="fas fa-shopping-cart mr-2"></i> ยืนยันการสั่งซื้อ
-               </button>
-             </div>
-           </div>
+          <!-- สรุปคำสั่งซื้อ -->
+<div class="bg-white rounded-xl shadow-soft p-6 h-fit">
+  <h2 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+    <i class="fas fa-shopping-basket text-primary-600 mr-2"></i> สรุปรายการสั่งซื้อ
+  </h2>
+  
+  <div x-show="cart.length === 0" class="text-center py-8 text-gray-500">
+    <i class="fas fa-shopping-cart text-gray-300 text-3xl mb-2"></i>
+    <p>ไม่มีสินค้าในตะกร้า</p>
+    <button @click="showPage('products')" class="mt-4 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md text-sm">
+      เลือกซื้อสินค้า
+    </button>
+  </div>
+  
+  <div x-show="cart.length > 0" class="space-y-4">
+    <!-- รายการสินค้า -->
+    <template x-for="(item, index) in cart" :key="index">
+      <div class="flex justify-between pb-3 border-b">
+        <div class="flex items-start">
+          <img :src="item?.image || 'https://via.placeholder.com/50'" class="w-10 h-10 rounded object-cover mr-3">
+          <div>
+            <p class="text-sm font-medium text-gray-900" x-text="item?.name || ''"></p>
+            <p class="text-xs text-gray-500" x-text="'x' + (item?.quantity || 1)"></p>
+          </div>
+        </div>
+        <p class="text-sm font-medium text-gray-900" x-text="'฿' + ((parseFloat(item?.price || 0) * (item?.quantity || 1)).toFixed(2))"></p>
+      </div>
+    </template>
+    
+    <!-- โค้ดส่วนลด -->
+    <div class="pt-3 border-t">
+      <div x-show="!appliedCoupon" class="space-y-3">
+        <div class="flex items-center text-sm text-gray-600">
+          <i class="fas fa-tag text-primary-600 mr-2"></i>
+          <span>มีโค้ดส่วนลด?</span>
+        </div>
+        <div class="flex space-x-2">
+          <input 
+            type="text" 
+            x-model="couponCode" 
+            placeholder="กรอกโค้ดส่วนลด" 
+            class="flex-1 text-sm border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            @keyup.enter="applyCoupon()"
+          >
+          <button 
+            @click="applyCoupon()" 
+            class="bg-primary-600 hover:bg-primary-700 text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
+            :disabled="!couponCode"
+          >
+            ใช้
+          </button>
+        </div>
+      </div>
+      
+      <!-- แสดงโค้ดที่ใช้แล้ว -->
+      <div x-show="appliedCoupon" class="bg-green-50 p-3 rounded-lg">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            <i class="fas fa-check-circle text-green-500 mr-2"></i>
+            <div>
+              <p class="text-sm font-medium text-green-800" x-text="appliedCoupon?.name || 'โค้ดส่วนลด'"></p>
+              <p class="text-xs text-green-600" x-text="'รหัส: ' + (appliedCoupon?.code || '')"></p>
+            </div>
+          </div>
+          <button @click="removeCoupon()" class="text-red-500 hover:text-red-700 text-sm">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- สรุปราคา -->
+    <div class="pt-3 border-t space-y-2">
+      <div class="flex justify-between text-sm">
+        <span class="text-gray-600">ราคาสินค้า</span>
+        <span class="text-gray-900" x-text="'฿' + calculateTotal().toFixed(2)"></span>
+      </div>
+      
+      <!-- แสดงส่วนลดถ้ามี -->
+      <div x-show="discountAmount > 0" class="flex justify-between text-sm">
+  <span class="text-green-600">ส่วนลด</span>
+  <span class="text-green-600" x-text="'-฿' + parseFloat(discountAmount || 0).toFixed(2)"></span>
+</div>
+      
+      <div class="flex justify-between font-medium py-2 border-t">
+  <span>รวมทั้งสิ้น</span>
+  <span class="text-primary-600 font-bold text-lg" x-text="'฿' + parseFloat(finalTotal || 0).toFixed(2)"></span>
+</div>
+    </div>
+    
+    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-600 my-3">
+      <div class="flex items-center">
+        <i class="fas fa-info-circle text-primary-600 mr-2"></i>
+        <p>สินค้าดิจิทัลจะส่งรหัสดาวน์โหลดทางอีเมลหลังจากชำระเงิน</p>
+      </div>
+    </div>
+    
+    <button 
+      x-show="!orderCreated"
+      @click="createOrder"
+      class="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 px-4 rounded-md text-base font-medium transition-colors shadow-md">
+      <i class="fas fa-shopping-cart mr-2"></i> ยืนยันการสั่งซื้อ
+    </button>
+  </div>
+</div>
          </div>
        </div>
        
@@ -1526,6 +1583,15 @@
                    <span>การดาวน์โหลด</span>
                  </a>
                </nav>
+
+                 <!-- เพิ่มเมนูโค้ดส่วนลดตรงนี้ -->
+      <!-- แก้ไขลิงก์แท็บโค้ดส่วนลดใน index.txt -->
+<a href="#" @click.prevent="dashboardTab = 'coupons'; loadCoupons()" class="flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors"
+   :class="dashboardTab === 'coupons' ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-100'">
+  <i class="fas fa-tags w-5 mr-3 text-center" :class="dashboardTab === 'coupons' ? 'text-primary-500' : 'text-gray-400'"></i>
+  <span>โค้ดส่วนลด</span>
+</a>
+    </nav>
                
                <h2 class="text-xs uppercase tracking-wider text-gray-500 font-semibold px-3 mb-2 mt-6">การตั้งค่า</h2>
                <nav class="space-y-1">
@@ -2102,7 +2168,272 @@
                  </div>
                </div>
              </div>
-             
+
+  <!-- จัดการโค้ดส่วนลด -->
+<div x-show="dashboardTab === 'coupons'" x-cloak x-transition>
+  <div class="flex justify-between items-center mb-6">
+    <h2 class="text-xl font-bold text-gray-900 flex items-center">
+      <i class="fas fa-tags text-primary-600 mr-2"></i> จัดการโค้ดส่วนลด
+    </h2>
+    <button @click="showCouponModal()" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center shadow-md">
+      <i class="fas fa-plus mr-2"></i>เพิ่มโค้ดส่วนลดใหม่
+    </button>
+  </div>
+  
+  <div class="bg-white rounded-xl shadow-soft overflow-hidden">
+    <div class="p-4 border-b bg-gray-50">
+      <div class="relative">
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <i class="fas fa-search text-gray-400"></i>
+        </div>
+        <input type="text" x-model="searchQuery" placeholder="ค้นหาโค้ดส่วนลด..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+      </div>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัสโค้ด</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อโค้ด</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ประเภท</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ส่วนลด</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การใช้งาน</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รายละเอียด</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การจัดการ</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <template x-for="coupon in coupons" :key="coupon?.coupon_id">
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-3 whitespace-nowrap text-sm font-bold text-primary-600" x-text="coupon?.code || '-'"></td>
+              <td class="px-4 py-3 text-sm text-gray-900">
+                <div class="font-medium" x-text="coupon?.name || '-'"></div>
+                <div class="text-xs text-gray-500 line-clamp-1" x-text="coupon?.description || ''"></div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                      :class="coupon?.discount_type === 'percentage' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'"
+                      x-text="coupon?.discount_type === 'percentage' ? 'เปอร์เซ็นต์' : 'จำนวนเงิน'"></span>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                <span x-text="coupon?.discount_type === 'percentage' ? 
+                  coupon?.discount_value + '%' : 
+                  '฿' + parseFloat(coupon?.discount_value || 0).toFixed(2)"></span>
+                <div x-show="coupon?.max_discount > 0" class="text-xs text-gray-500">
+                  สูงสุด ฿<span x-text="parseFloat(coupon?.max_discount || 0).toFixed(2)"></span>
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                <div class="flex items-center space-x-1">
+                  <span x-text="(coupon?.used_count || 0)"></span>
+                  <span class="text-gray-400">/</span>
+                  <span x-text="(coupon?.usage_limit > 0 ? coupon?.usage_limit : '∞')"></span>
+                </div>
+                <!-- แสดงจำนวนอีเมลที่ใช้แล้ว -->
+                <div class="text-xs text-gray-500">
+                  <span x-text="(coupon?.used_by_emails?.length || 0) + ' อีเมล'"></span>
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                <div x-show="coupon?.minimum_amount > 0" class="text-xs">
+                  ขั้นต่ำ ฿<span x-text="parseFloat(coupon?.minimum_amount || 0).toFixed(2)"></span>
+                </div>
+                <div x-show="coupon?.expiry_date" class="text-xs">
+                  หมดอายุ: <span x-text="formatDate(coupon?.expiry_date)"></span>
+                </div>
+                <div x-show="coupon?.created_at" class="text-xs">
+                  สร้าง: <span x-text="formatDate(coupon?.created_at)"></span>
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm">
+                <span 
+                  class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                  :class="{
+                    'bg-green-100 text-green-800': coupon?.status === 'active',
+                    'bg-red-100 text-red-800': coupon?.status === 'inactive'
+                  }"
+                  x-text="getStatusText(coupon?.status)"></span>
+                <!-- แสดงสถานะหมดอายุ -->
+                <div x-show="coupon?.expiry_date && new Date(coupon.expiry_date) < new Date()" class="text-xs text-red-600 mt-1">
+                  <i class="fas fa-exclamation-triangle mr-1"></i>หมดอายุแล้ว
+                </div>
+                <!-- แสดงสถานะใช้หมด -->
+                <div x-show="coupon?.usage_limit > 0 && (coupon?.used_count || 0) >= coupon?.usage_limit" class="text-xs text-orange-600 mt-1">
+                  <i class="fas fa-ban mr-1"></i>ใช้หมดแล้ว
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                <div class="flex space-x-2">
+                  <button @click="showCouponDetail(coupon)" class="text-indigo-600 hover:text-indigo-800 p-1" title="ดูรายละเอียด">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  <button @click="showCouponModal(coupon)" class="text-primary-600 hover:text-primary-800 p-1" title="แก้ไขโค้ด">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button @click="copyCouponCode(coupon?.code)" class="text-gray-600 hover:text-gray-800 p-1" title="คัดลอกโค้ด">
+                    <i class="fas fa-copy"></i>
+                  </button>
+                  <button @click="deleteCoupon(coupon?.coupon_id)" class="text-red-600 hover:text-red-800 p-1" title="ลบโค้ด">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </template>
+          <tr x-show="coupons.length === 0">
+            <td colspan="8" class="px-4 py-8 text-center text-sm text-gray-500">
+              <i class="fas fa-tags text-gray-300 text-3xl mb-2"></i>
+              <p>ไม่มีโค้ดส่วนลด</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal รายละเอียดโค้ดส่วนลด -->
+<div x-show="couponDetailModalOpen" class="fixed inset-0 overflow-y-auto z-50" x-cloak>
+  <div class="flex items-center justify-center min-h-screen p-4 text-center">
+    <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+      <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+    </div>
+    
+    <div class="bg-white rounded-xl overflow-hidden shadow-xl transform transition-all max-w-2xl w-full">
+      <div class="bg-primary-600 px-4 py-3 border-b flex justify-between items-center">
+        <h3 class="text-lg font-medium text-white flex items-center">
+          <i class="fas fa-tag mr-2"></i> รายละเอียดโค้ดส่วนลด
+        </h3>
+        <button @click="couponDetailModalOpen = false" class="text-white hover:text-gray-200">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="p-6" x-show="currentCouponDetail !== null">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- ข้อมูลพื้นฐาน -->
+          <div class="bg-gray-50 p-4 rounded-lg">
+            <h4 class="text-base font-medium text-gray-900 mb-3 flex items-center">
+              <i class="fas fa-info-circle text-primary-600 mr-2"></i> ข้อมูลพื้นฐาน
+            </h4>
+            <div class="space-y-2">
+              <p class="text-sm text-gray-800">
+                <span class="font-medium">รหัสโค้ด:</span> 
+                <span class="ml-1 font-mono bg-gray-100 px-2 py-1 rounded text-primary-600" x-text="currentCouponDetail?.code || '-'"></span>
+                <button @click="copyCouponCode(currentCouponDetail?.code)" class="ml-2 text-gray-500 hover:text-primary-600">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </p>
+              <p class="text-sm text-gray-800">
+                <span class="font-medium">ชื่อโค้ด:</span> <span class="ml-1" x-text="currentCouponDetail?.name || '-'"></span>
+              </p>
+              <p class="text-sm text-gray-800" x-show="currentCouponDetail?.description">
+                <span class="font-medium">คำอธิบาย:</span> <span class="ml-1" x-text="currentCouponDetail?.description || '-'"></span>
+              </p>
+              <p class="text-sm text-gray-800">
+                <span class="font-medium">สถานะ:</span> 
+                <span 
+                  class="ml-1 px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                  :class="{
+                    'bg-green-100 text-green-800': currentCouponDetail?.status === 'active',
+                    'bg-red-100 text-red-800': currentCouponDetail?.status === 'inactive'
+                  }"
+                  x-text="getStatusText(currentCouponDetail?.status)"></span>
+              </p>
+            </div>
+          </div>
+          
+          <!-- ข้อมูลส่วนลด -->
+          <div class="bg-gray-50 p-4 rounded-lg">
+            <h4 class="text-base font-medium text-gray-900 mb-3 flex items-center">
+              <i class="fas fa-percentage text-primary-600 mr-2"></i> ข้อมูลส่วนลด
+            </h4>
+            <div class="space-y-2">
+              <p class="text-sm text-gray-800">
+                <span class="font-medium">ประเภท:</span> 
+                <span 
+                  class="ml-1 px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                  :class="currentCouponDetail?.discount_type === 'percentage' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'"
+                  x-text="currentCouponDetail?.discount_type === 'percentage' ? 'เปอร์เซ็นต์' : 'จำนวนเงิน'"></span>
+              </p>
+              <p class="text-sm text-gray-800">
+                <span class="font-medium">มูลค่าส่วนลด:</span> 
+                <span class="ml-1 font-bold text-primary-600" 
+                      x-text="currentCouponDetail?.discount_type === 'percentage' ? 
+                        currentCouponDetail?.discount_value + '%' : 
+                        '฿' + parseFloat(currentCouponDetail?.discount_value || 0).toFixed(2)"></span>
+              </p>
+              <p class="text-sm text-gray-800" x-show="currentCouponDetail?.max_discount > 0">
+                <span class="font-medium">ส่วนลดสูงสุด:</span> 
+                <span class="ml-1" x-text="'฿' + parseFloat(currentCouponDetail?.max_discount || 0).toFixed(2)"></span>
+              </p>
+              <p class="text-sm text-gray-800" x-show="currentCouponDetail?.minimum_amount > 0">
+                <span class="font-medium">ยอดขั้นต่ำ:</span> 
+                <span class="ml-1" x-text="'฿' + parseFloat(currentCouponDetail?.minimum_amount || 0).toFixed(2)"></span>
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- ข้อมูลการใช้งาน -->
+        <div class="mt-6 bg-gray-50 p-4 rounded-lg">
+          <h4 class="text-base font-medium text-gray-900 mb-3 flex items-center">
+            <i class="fas fa-chart-bar text-primary-600 mr-2"></i> สถิติการใช้งาน
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="text-center">
+              <div class="text-2xl font-bold text-primary-600" x-text="currentCouponDetail?.used_count || 0"></div>
+              <div class="text-sm text-gray-500">ใช้งานแล้ว</div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-gray-600" x-text="currentCouponDetail?.usage_limit > 0 ? currentCouponDetail?.usage_limit : '∞'"></div>
+              <div class="text-sm text-gray-500">จำกัดการใช้งาน</div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-green-600" x-text="currentCouponDetail?.used_by_emails?.length || 0"></div>
+              <div class="text-sm text-gray-500">จำนวนอีเมล</div>
+            </div>
+          </div>
+          
+          <!-- รายชื่ออีเมลที่ใช้แล้ว -->
+          <div x-show="currentCouponDetail?.used_by_emails && currentCouponDetail?.used_by_emails.length > 0" class="mt-4">
+            <h5 class="text-sm font-medium text-gray-700 mb-2">อีเมลที่ใช้โค้ดแล้ว:</h5>
+            <div class="max-h-32 overflow-y-auto bg-white p-2 rounded border">
+              <template x-for="email in currentCouponDetail?.used_by_emails" :key="email">
+                <div class="text-xs text-gray-600 py-1 border-b last:border-b-0" x-text="email"></div>
+              </template>
+            </div>
+          </div>
+        </div>
+        
+        <!-- ข้อมูลวันที่ -->
+        <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="bg-gray-50 p-3 rounded-lg">
+            <div class="text-sm font-medium text-gray-700">วันที่สร้าง</div>
+            <div class="text-sm text-gray-600" x-text="formatDate(currentCouponDetail?.created_at)"></div>
+          </div>
+          <div class="bg-gray-50 p-3 rounded-lg" x-show="currentCouponDetail?.expiry_date">
+            <div class="text-sm font-medium text-gray-700">วันหมดอายุ</div>
+            <div class="text-sm" 
+                 :class="new Date(currentCouponDetail?.expiry_date) < new Date() ? 'text-red-600' : 'text-gray-600'"
+                 x-text="formatDate(currentCouponDetail?.expiry_date)"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-gray-50 px-4 py-3 flex justify-between">
+        <button @click="showCouponModal(currentCouponDetail)" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+          <i class="fas fa-edit mr-2"></i> แก้ไข
+        </button>
+        <button @click="couponDetailModalOpen = false" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+          <i class="fas fa-times mr-2"></i> ปิด
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+   
+  
              <div x-show="dashboardTab === 'users'" x-cloak x-transition>
                <!-- จัดการผู้ใช้ -->
                <div class="flex justify-between items-center mb-6">
@@ -2238,6 +2569,53 @@
                            </div>
                          </div>
                        </div>
+
+                        <!-- เพิ่มการตั้งค่าโค้ดส่วนลด -->
+              <div class="bg-gray-50 p-4 rounded-lg">
+                <h4 class="text-md font-medium text-gray-800 mb-3 flex items-center">
+                  <i class="fas fa-tags text-primary-600 mr-2"></i> การตั้งค่าโค้ดส่วนลด
+                </h4>
+                <div class="space-y-3">
+                  <div>
+                    <label class="flex items-center">
+                      <input type="checkbox" x-model="configData.enable_coupons" class="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                      <span class="ml-2 text-sm font-medium text-gray-700">เปิดใช้งานระบบโค้ดส่วนลด</span>
+                    </label>
+                    <p class="text-xs text-gray-500 mt-1 ml-6">อนุญาตให้ลูกค้าใช้โค้ดส่วนลดในการสั่งซื้อ</p>
+                  </div>
+                  
+                  <div x-show="configData.enable_coupons" x-transition class="ml-6 space-y-3">
+                    <div>
+                      <label class="flex items-center">
+                        <input type="checkbox" x-model="configData.coupon_show_on_homepage" class="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                        <span class="ml-2 text-sm text-gray-700">แสดงโค้ดส่วนลดบนหน้าหลัก</span>
+                      </label>
+                    </div>
+                    
+                    <div>
+                      <label class="flex items-center">
+                        <input type="checkbox" x-model="configData.coupon_stackable" class="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                        <span class="ml-2 text-sm text-gray-700">อนุญาตให้ใช้โค้ดส่วนลดได้หลายโค้ดพร้อมกัน</span>
+                      </label>
+                      <p class="text-xs text-gray-500 mt-1 ml-6">หากปิดใช้งาน จะสามารถใช้ได้เพียงโค้ดเดียวต่อการสั่งซื้อ</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label for="configCouponMaxUse" class="block text-xs font-medium text-gray-700 mb-1">จำนวนการใช้งานสูงสุดต่อลูกค้า</label>
+                        <input type="number" id="configCouponMaxUse" x-model="configData.coupon_max_use_per_customer" min="0" class="w-full text-sm border border-gray-300 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500">
+                        <p class="text-xs text-gray-500 mt-1">ใส่ 0 เพื่อไม่จำกัด</p>
+                      </div>
+                      
+                      <div>
+                        <label for="configCouponValidityDays" class="block text-xs font-medium text-gray-700 mb-1">วันใช้งานโค้ดใหม่ (วัน)</label>
+                        <input type="number" id="configCouponValidityDays" x-model="configData.coupon_default_validity_days" min="1" class="w-full text-sm border border-gray-300 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500">
+                        <p class="text-xs text-gray-500 mt-1">ค่าเริ่มต้นเมื่อสร้างโค้ดใหม่</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
                        
                        <div>
                          <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
@@ -2991,6 +3369,111 @@
        </div>
      </div>
    </div>
+   
+<!-- Coupon Modal -->
+<div x-show="couponModalOpen" class="fixed inset-0 overflow-y-auto z-50" x-cloak>
+  <div class="flex items-center justify-center min-h-screen p-4 text-center">
+    <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+      <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+    </div>
+    
+    <div class="bg-white rounded-xl overflow-hidden shadow-xl transform transition-all max-w-2xl w-full">
+      <div class="bg-primary-600 px-4 py-3 border-b flex justify-between items-center">
+        <h3 class="text-lg font-medium text-white" x-text="editingCoupon ? 'แก้ไขโค้ดส่วนลด' : 'เพิ่มโค้ดส่วนลดใหม่'"></h3>
+        <button @click="couponModalOpen = false" class="text-white hover:text-gray-200">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="p-6">
+        <form @submit.prevent="saveCoupon">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- คอลัมน์ซ้าย -->
+            <div class="space-y-4">
+              <div>
+                <label for="couponCode" class="block text-sm font-medium text-gray-700 mb-1">รหัสโค้ด <span class="text-red-500">*</span></label>
+                <input type="text" id="couponCode" x-model="couponForm.code" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 uppercase" required>
+                <p class="text-xs text-gray-500 mt-1">ตัวอักษรจะถูกแปลงเป็นตัวใหญ่อัตโนมัติ</p>
+              </div>
+              
+              <div>
+                <label for="couponName" class="block text-sm font-medium text-gray-700 mb-1">ชื่อโค้ด <span class="text-red-500">*</span></label>
+                <input type="text" id="couponName" x-model="couponForm.name" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" required>
+              </div>
+              
+              <div>
+                <label for="couponDescription" class="block text-sm font-medium text-gray-700 mb-1">คำอธิบาย</label>
+                <textarea id="couponDescription" x-model="couponForm.description" rows="3" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"></textarea>
+              </div>
+              
+              <div>
+                <label for="couponType" class="block text-sm font-medium text-gray-700 mb-1">ประเภทส่วนลด</label>
+                <select id="couponType" x-model="couponForm.discount_type" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                  <option value="percentage">เปอร์เซ็นต์ (%)</option>
+                  <option value="fixed">จำนวนเงิน (บาท)</option>
+                </select>
+              </div>
+            </div>
+            
+            <!-- คอลัมน์ขวา -->
+            <div class="space-y-4">
+              <div>
+                <label for="couponValue" class="block text-sm font-medium text-gray-700 mb-1">
+                  มูลค่าส่วนลด <span class="text-red-500">*</span>
+                  <span x-text="couponForm.discount_type === 'percentage' ? '(%)' : '(บาท)'"></span>
+                </label>
+                <input type="number" id="couponValue" x-model="couponForm.discount_value" 
+                       :min="couponForm.discount_type === 'percentage' ? '1' : '1'" 
+                       :max="couponForm.discount_type === 'percentage' ? '100' : ''"
+                       step="0.01" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" required>
+              </div>
+              
+              <div x-show="couponForm.discount_type === 'percentage'">
+                <label for="couponMaxDiscount" class="block text-sm font-medium text-gray-700 mb-1">ส่วนลดสูงสุด (บาท)</label>
+                <input type="number" id="couponMaxDiscount" x-model="couponForm.max_discount" min="0" step="0.01" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <p class="text-xs text-gray-500 mt-1">ใส่ 0 หากไม่ต้องการจำกัด</p>
+              </div>
+              
+              <div>
+                <label for="couponMinAmount" class="block text-sm font-medium text-gray-700 mb-1">ยอดขั้นต่ำ (บาท)</label>
+                <input type="number" id="couponMinAmount" x-model="couponForm.minimum_amount" min="0" step="0.01" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <p class="text-xs text-gray-500 mt-1">ใส่ 0 หากไม่ต้องการจำกัด</p>
+              </div>
+              
+              <div>
+                <label for="couponUsageLimit" class="block text-sm font-medium text-gray-700 mb-1">จำนวนครั้งที่ใช้ได้</label>
+                <input type="number" id="couponUsageLimit" x-model="couponForm.usage_limit" min="0" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <p class="text-xs text-gray-500 mt-1">ใส่ 0 หากไม่ต้องการจำกัด</p>
+              </div>
+              
+              <div>
+                <label for="couponExpiry" class="block text-sm font-medium text-gray-700 mb-1">วันหมดอายุ</label>
+                <input type="date" id="couponExpiry" x-model="couponForm.expiry_date" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+              </div>
+              
+              <div>
+                <label for="couponStatus" class="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
+                <select id="couponStatus" x-model="couponForm.status" class="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                  <option value="active">เปิดใช้งาน</option>
+                  <option value="inactive">ปิดใช้งาน</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+            <button type="button" @click="couponModalOpen = false" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-5 py-2 rounded-md text-sm font-medium transition-colors">
+              <i class="fas fa-times mr-2"></i> ยกเลิก
+            </button>
+            <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2 rounded-md text-sm font-medium transition-colors">
+              <i class="fas fa-save mr-2"></i> บันทึก
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
  
  <!-- Alpine.js -->
  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
