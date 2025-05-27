@@ -986,7 +986,7 @@ function getOrdersJSON() {
 
 /**
  * ฟังก์ชันสำหรับบันทึกข้อมูลคำสั่งซื้อ
- * แก้ไขให้เมื่อสร้างคำสั่งซื้อใหม่ มีการสร้าง QR Code และแสดงหน้าชำระเงิน
+ * แก้ไขให้เมื่อสร้างคำสั่งซื้อใหม่ มีการส่งอีเมลยืนยันให้ลูกค้า
  */
 function saveOrderJSON(orderData) {
   try {
@@ -1001,6 +1001,9 @@ function saveOrderJSON(orderData) {
       orderData.status = 'pending';
       
       sheet.appendRow([JSON.stringify(orderData)]);
+      
+      // ส่งอีเมลยืนยันคำสั่งซื้อให้ลูกค้า
+      sendOrderConfirmationEmail(orderData);
       
       // แจ้งเตือนเมื่อมีคำสั่งซื้อใหม่
       notifyNewOrder(orderData);
@@ -1303,6 +1306,7 @@ function updatePaymentStatusJSON(paymentId, status) {
       var payment = JSON.parse(data[i][0]);
       
       if (payment.payment_id === paymentId) {
+        var oldStatus = payment.status; // เก็บสถานะเก่าไว้
         payment.status = status;
         
         // บันทึกข้อมูลกลับลงใน sheet
@@ -1310,11 +1314,28 @@ function updatePaymentStatusJSON(paymentId, status) {
         
         // อัพเดทสถานะคำสั่งซื้อตามสถานะการชำระเงิน
         if (status === 'completed') {
-          // ถ้าสถานะเป็น completed ให้สร้าง Download ด้วย
-          createDownload(payment.order_id);
+          // ดึงข้อมูลคำสั่งซื้อก่อน
+          var orderResult = getOrderJSON(payment.order_id);
           
-          // อัพเดทสถานะคำสั่งซื้อเป็น completed
-          updateOrderStatusJSON(payment.order_id, 'completed');
+          if (orderResult.status === 'success') {
+            // สร้าง Download 
+            var downloadResult = createDownload(payment.order_id);
+            
+            // อัพเดทสถานะคำสั่งซื้อเป็น completed
+            updateOrderStatusJSON(payment.order_id, 'completed');
+            
+            // ส่งอีเมลยืนยันการชำระเงินให้ลูกค้า (เฉพาะเมื่อเปลี่ยนจาก pending เป็น completed)
+            if (oldStatus === 'pending') {
+              try {
+                var emailResult = sendPaymentConfirmationEmail(orderResult.order, payment);
+                console.log('Email result:', emailResult);
+              } catch (emailError) {
+                console.error('Error sending payment confirmation email:', emailError);
+                logError('sendPaymentConfirmationEmail', emailError);
+              }
+            }
+          }
+          
         } else if (status === 'rejected') {
           // ถ้าสถานะเป็น rejected ให้อัพเดทสถานะคำสั่งซื้อเป็น pending
           updateOrderStatusJSON(payment.order_id, 'pending');
@@ -1343,7 +1364,6 @@ function updatePaymentStatusJSON(paymentId, status) {
     };
   }
 }
-
 // ===== ฟังก์ชันการจัดการการดาวน์โหลด =====
 
 /**
@@ -3166,6 +3186,804 @@ function notifyPaymentStatusChanged(payment, status) {
     return {
       status: 'error',
       message: 'เกิดข้อผิดพลาดในการแจ้งเตือนการเปลี่ยนสถานะการชำระเงิน: ' + error.message
+    };
+  }
+}
+
+/**
+ * ฟังก์ชันสำหรับส่งอีเมลยืนยันคำสั่งซื้อใหม่ให้ลูกค้า
+ */
+function sendOrderConfirmationEmail(orderData) {
+  try {
+    var configResult = getConfigJSON();
+    var storeName = 'ร้านค้าดิจิทัลออนไลน์';
+    var storeLogo = '';
+    
+    if (configResult.status === 'success') {
+      storeName = configResult.config.store_name || storeName;
+      storeLogo = configResult.config.store_logo || '';
+    }
+    
+    var subject = '✅ ยืนยันคำสั่งซื้อ #' + orderData.order_id.substring(0, 8) + ' - ' + storeName;
+    
+    // สร้างรายการสินค้า HTML
+    var itemsHtml = '';
+    var totalAmount = 0;
+    
+    for (var i = 0; i < orderData.items.length; i++) {
+      var item = orderData.items[i];
+      var itemTotal = parseFloat(item.price) * (item.quantity || 1);
+      totalAmount += itemTotal;
+      
+      itemsHtml += `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">
+          <div style="display: flex; align-items: center;">
+            <img src="${item.image || 'https://via.placeholder.com/50x50?text=No+Image'}" 
+                 alt="${item.name}" 
+                 style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 10px;">
+            <div>
+              <div style="font-weight: 600; color: #374151;">${item.name}</div>
+              <div style="font-size: 12px; color: #6b7280;">สินค้าดิจิทัล</div>
+            </div>
+          </div>
+        </td>
+        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;">
+          ${item.quantity || 1}
+        </td>
+        <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee;">
+          ฿${parseFloat(item.price).toFixed(2)}
+        </td>
+        <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee; font-weight: 600;">
+          ฿${itemTotal.toFixed(2)}
+        </td>
+      </tr>
+      `;
+    }
+    
+    // สร้าง HTML email
+    var htmlBody = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>ยืนยันคำสั่งซื้อ</title>
+      <style>
+        body {
+          font-family: 'Sarabun', 'Helvetica Neue', Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          margin: 0;
+          padding: 0;
+          background-color: #f5f7fa;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          background-color: #ffffff;
+          border-radius: 8px;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        .header {
+          text-align: center;
+          padding-bottom: 20px;
+          border-bottom: 1px solid #eaeaea;
+        }
+        .logo {
+          max-height: 60px;
+          margin-bottom: 15px;
+        }
+        .content {
+          padding: 30px 20px;
+        }
+        .order-info {
+          background-color: #f0f9ff;
+          border-left: 4px solid #3b82f6;
+          padding: 15px 20px;
+          margin: 20px 0;
+          border-radius: 4px;
+        }
+        .items-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 20px 0;
+          background-color: white;
+          border-radius: 6px;
+          overflow: hidden;
+          border: 1px solid #e5e7eb;
+        }
+        .items-table th {
+          background-color: #f9fafb;
+          padding: 12px 10px;
+          text-align: left;
+          font-weight: 600;
+          color: #374151;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .total-row {
+          background-color: #f9fafb;
+          font-weight: bold;
+        }
+        .total-row td {
+          padding: 15px 10px;
+          border-top: 2px solid #3b82f6;
+        }
+        .payment-info {
+          background-color: #fef3c7;
+          border-left: 4px solid #f59e0b;
+          padding: 15px 20px;
+          margin: 20px 0;
+          border-radius: 4px;
+        }
+        .footer {
+          text-align: center;
+          padding-top: 20px;
+          border-top: 1px solid #eaeaea;
+          font-size: 14px;
+          color: #666;
+        }
+        .button {
+          display: inline-block;
+          background-color: #3b82f6;
+          color: white;
+          text-decoration: none;
+          padding: 12px 24px;
+          border-radius: 6px;
+          font-weight: 600;
+          margin: 15px 0;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          ${storeLogo ? `<img src="${storeLogo}" alt="${storeName}" class="logo">` : ''}
+          <h1>${storeName}</h1>
+        </div>
+        
+        <div class="content">
+          <h2 style="color: #10b981; margin-bottom: 10px;">✅ ยืนยันคำสั่งซื้อสำเร็จ!</h2>
+          <p>เรียน ${orderData.customer.name || 'ลูกค้า'},</p>
+          
+          <p>ขอบคุณสำหรับการสั่งซื้อ! เราได้รับคำสั่งซื้อของคุณเรียบร้อยแล้ว</p>
+          
+          <div class="order-info">
+            <h3 style="margin-top: 0; color: #1e40af;">📋 ข้อมูลคำสั่งซื้อ</h3>
+            <p><strong>รหัสคำสั่งซื้อ:</strong> ${orderData.order_id}</p>
+            <p><strong>วันที่สั่งซื้อ:</strong> ${new Date(orderData.order_date).toLocaleString('th-TH')}</p>
+            <p><strong>สถานะ:</strong> <span style="background-color: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 12px;">รอการชำระเงิน</span></p>
+          </div>
+          
+          <h3 style="color: #374151;">🛍️ รายการสินค้าที่สั่งซื้อ</h3>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>สินค้า</th>
+                <th style="text-align: center;">จำนวน</th>
+                <th style="text-align: right;">ราคา</th>
+                <th style="text-align: right;">รวม</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+              <tr class="total-row">
+                <td colspan="3" style="text-align: right; color: #1f2937;">รวมทั้งสิ้น:</td>
+                <td style="text-align: right; color: #3b82f6; font-size: 18px;">฿${parseFloat(orderData.total_amount).toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div class="payment-info">
+            <h3 style="margin-top: 0; color: #92400e;">💳 ขั้นตอนต่อไป</h3>
+            <p><strong>1.</strong> กรุณาชำระเงินตามจำนวน <strong>฿${parseFloat(orderData.total_amount).toFixed(2)}</strong></p>
+            <p><strong>2.</strong> อัพโหลดหลักฐานการโอนเงิน (สลิป)</p>
+            <p><strong>3.</strong> รอการตรวจสอบและยืนยันจากทางร้าน</p>
+            <p><strong>4.</strong> รับรหัสดาวน์โหลดทางอีเมลหลังจากการชำระเงินได้รับการยืนยัน</p>
+          </div>
+          
+          <div style="text-align: center;">
+            <a href="${ScriptApp.getService().getUrl()}" class="button">
+              💳 ดำเนินการชำระเงิน
+            </a>
+          </div>
+          
+          <div style="background-color: #e5f3ff; padding: 15px; border-radius: 6px; margin-top: 20px;">
+            <p style="margin: 0; font-size: 14px; color: #1e40af;">
+              <strong>📧 หมายเหตุ:</strong> กรุณาเก็บอีเมลนี้ไว้เป็นหลักฐาน และติดตามสถานะคำสั่งซื้อของคุณ
+            </p>
+          </div>
+        </div>
+        
+        <div class="footer">
+          <p>หากมีข้อสงสัย กรุณาติดต่อเราที่ ${STORE_EMAIL}</p>
+          <p>&copy; ${new Date().getFullYear()} ${storeName} - ขอบคุณที่ใช้บริการ</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+    
+    // สร้าง plain text version
+    var plainBody = `ยืนยันคำสั่งซื้อสำเร็จ!\n\n`;
+    plainBody += `เรียน ${orderData.customer.name || 'ลูกค้า'},\n\n`;
+    plainBody += `ขอบคุณสำหรับการสั่งซื้อ! เราได้รับคำสั่งซื้อของคุณเรียบร้อยแล้ว\n\n`;
+    plainBody += `ข้อมูลคำสั่งซื้อ:\n`;
+    plainBody += `รหัสคำสั่งซื้อ: ${orderData.order_id}\n`;
+    plainBody += `วันที่สั่งซื้อ: ${new Date(orderData.order_date).toLocaleString('th-TH')}\n`;
+    plainBody += `จำนวนเงิน: ฿${parseFloat(orderData.total_amount).toFixed(2)}\n`;
+    plainBody += `สถานะ: รอการชำระเงิน\n\n`;
+    
+    plainBody += `รายการสินค้า:\n`;
+    for (var i = 0; i < orderData.items.length; i++) {
+      var item = orderData.items[i];
+      plainBody += `${i + 1}. ${item.name} - จำนวน ${item.quantity || 1} - ฿${parseFloat(item.price).toFixed(2)}\n`;
+    }
+    
+    plainBody += `\nขั้นตอนต่อไป:\n`;
+    plainBody += `1. กรุณาชำระเงินตามจำนวน ฿${parseFloat(orderData.total_amount).toFixed(2)}\n`;
+    plainBody += `2. อัพโหลดหลักฐานการโอนเงิน (สลิป)\n`;
+    plainBody += `3. รอการตรวจสอบและยืนยันจากทางร้าน\n`;
+    plainBody += `4. รับรหัสดาวน์โหลดทางอีเมลหลังจากการชำระเงินได้รับการยืนยัน\n\n`;
+    plainBody += `กรุณาเก็บอีเมลนี้ไว้เป็นหลักฐาน\n\n`;
+    plainBody += `ขอบคุณที่ใช้บริการ,\n${storeName}`;
+    
+    // ส่งอีเมล
+    MailApp.sendEmail({
+      to: orderData.customer.email,
+      subject: subject,
+      htmlBody: htmlBody,
+      body: plainBody
+    });
+    
+    return {
+      status: 'success',
+      message: 'ส่งอีเมลยืนยันคำสั่งซื้อเรียบร้อยแล้ว'
+    };
+  } catch (error) {
+    logError('sendOrderConfirmationEmail', error);
+    return {
+      status: 'error',
+      message: 'เกิดข้อผิดพลาดในการส่งอีเมลยืนยันคำสั่งซื้อ: ' + error.message
+    };
+  }
+}
+
+/**
+ * ฟังก์ชันสำหรับส่งอีเมลยืนยันคำสั่งซื้อใหม่ให้ลูกค้า
+ */
+function sendOrderConfirmationEmail(orderData) {
+  try {
+    var configResult = getConfigJSON();
+    var storeName = 'ร้านค้าดิจิทัลออนไลน์';
+    var storeLogo = '';
+    
+    if (configResult.status === 'success') {
+      storeName = configResult.config.store_name || storeName;
+      storeLogo = configResult.config.store_logo || '';
+    }
+    
+    var subject = '✅ ยืนยันคำสั่งซื้อ #' + orderData.order_id.substring(0, 8) + ' - ' + storeName;
+    
+    // สร้างรายการสินค้า HTML
+    var itemsHtml = '';
+    var totalAmount = 0;
+    
+    for (var i = 0; i < orderData.items.length; i++) {
+      var item = orderData.items[i];
+      var itemTotal = parseFloat(item.price) * (item.quantity || 1);
+      totalAmount += itemTotal;
+      
+      itemsHtml += `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #eee;">
+          <div style="display: flex; align-items: center;">
+            <img src="${item.image || 'https://via.placeholder.com/50x50?text=No+Image'}" 
+                 alt="${item.name}" 
+                 style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 10px;">
+            <div>
+              <div style="font-weight: 600; color: #374151;">${item.name}</div>
+              <div style="font-size: 12px; color: #6b7280;">สินค้าดิจิทัล</div>
+            </div>
+          </div>
+        </td>
+        <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;">
+          ${item.quantity || 1}
+        </td>
+        <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee;">
+          ฿${parseFloat(item.price).toFixed(2)}
+        </td>
+        <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee; font-weight: 600;">
+          ฿${itemTotal.toFixed(2)}
+        </td>
+      </tr>
+      `;
+    }
+    
+    // สร้าง HTML email
+    var htmlBody = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>ยืนยันคำสั่งซื้อ</title>
+      <style>
+        body {
+          font-family: 'Sarabun', 'Helvetica Neue', Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          margin: 0;
+          padding: 0;
+          background-color: #f5f7fa;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          background-color: #ffffff;
+          border-radius: 8px;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        .header {
+          text-align: center;
+          padding-bottom: 20px;
+          border-bottom: 1px solid #eaeaea;
+        }
+        .logo {
+          max-height: 60px;
+          margin-bottom: 15px;
+        }
+        .content {
+          padding: 30px 20px;
+        }
+        .order-info {
+          background-color: #f0f9ff;
+          border-left: 4px solid #3b82f6;
+          padding: 15px 20px;
+          margin: 20px 0;
+          border-radius: 4px;
+        }
+        .items-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 20px 0;
+          background-color: white;
+          border-radius: 6px;
+          overflow: hidden;
+          border: 1px solid #e5e7eb;
+        }
+        .items-table th {
+          background-color: #f9fafb;
+          padding: 12px 10px;
+          text-align: left;
+          font-weight: 600;
+          color: #374151;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .total-row {
+          background-color: #f9fafb;
+          font-weight: bold;
+        }
+        .total-row td {
+          padding: 15px 10px;
+          border-top: 2px solid #3b82f6;
+        }
+        .payment-info {
+          background-color: #fef3c7;
+          border-left: 4px solid #f59e0b;
+          padding: 15px 20px;
+          margin: 20px 0;
+          border-radius: 4px;
+        }
+        .footer {
+          text-align: center;
+          padding-top: 20px;
+          border-top: 1px solid #eaeaea;
+          font-size: 14px;
+          color: #666;
+        }
+        .button {
+          display: inline-block;
+          background-color: #3b82f6;
+          color: white;
+          text-decoration: none;
+          padding: 12px 24px;
+          border-radius: 6px;
+          font-weight: 600;
+          margin: 15px 0;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          ${storeLogo ? `<img src="${storeLogo}" alt="${storeName}" class="logo">` : ''}
+          <h1>${storeName}</h1>
+        </div>
+        
+        <div class="content">
+          <h2 style="color: #10b981; margin-bottom: 10px;">✅ ยืนยันคำสั่งซื้อสำเร็จ!</h2>
+          <p>เรียน ${orderData.customer.name || 'ลูกค้า'},</p>
+          
+          <p>ขอบคุณสำหรับการสั่งซื้อ! เราได้รับคำสั่งซื้อของคุณเรียบร้อยแล้ว</p>
+          
+          <div class="order-info">
+            <h3 style="margin-top: 0; color: #1e40af;">📋 ข้อมูลคำสั่งซื้อ</h3>
+            <p><strong>รหัสคำสั่งซื้อ:</strong> ${orderData.order_id}</p>
+            <p><strong>วันที่สั่งซื้อ:</strong> ${new Date(orderData.order_date).toLocaleString('th-TH')}</p>
+            <p><strong>สถานะ:</strong> <span style="background-color: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 12px;">รอการชำระเงิน</span></p>
+          </div>
+          
+          <h3 style="color: #374151;">🛍️ รายการสินค้าที่สั่งซื้อ</h3>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>สินค้า</th>
+                <th style="text-align: center;">จำนวน</th>
+                <th style="text-align: right;">ราคา</th>
+                <th style="text-align: right;">รวม</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+              <tr class="total-row">
+                <td colspan="3" style="text-align: right; color: #1f2937;">รวมทั้งสิ้น:</td>
+                <td style="text-align: right; color: #3b82f6; font-size: 18px;">฿${parseFloat(orderData.total_amount).toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div class="payment-info">
+            <h3 style="margin-top: 0; color: #92400e;">💳 ขั้นตอนต่อไป</h3>
+            <p><strong>1.</strong> กรุณาชำระเงินตามจำนวน <strong>฿${parseFloat(orderData.total_amount).toFixed(2)}</strong></p>
+            <p><strong>2.</strong> อัพโหลดหลักฐานการโอนเงิน (สลิป)</p>
+            <p><strong>3.</strong> รอการตรวจสอบและยืนยันจากทางร้าน</p>
+            <p><strong>4.</strong> รับรหัสดาวน์โหลดทางอีเมลหลังจากการชำระเงินได้รับการยืนยัน</p>
+          </div>
+          
+          <div style="text-align: center;">
+            <a href="${ScriptApp.getService().getUrl()}" class="button">
+              💳 ดำเนินการชำระเงิน
+            </a>
+          </div>
+          
+          <div style="background-color: #e5f3ff; padding: 15px; border-radius: 6px; margin-top: 20px;">
+            <p style="margin: 0; font-size: 14px; color: #1e40af;">
+              <strong>📧 หมายเหตุ:</strong> กรุณาเก็บอีเมลนี้ไว้เป็นหลักฐาน และติดตามสถานะคำสั่งซื้อของคุณ
+            </p>
+          </div>
+        </div>
+        
+        <div class="footer">
+          <p>หากมีข้อสงสัย กรุณาติดต่อเราที่ ${STORE_EMAIL}</p>
+          <p>&copy; ${new Date().getFullYear()} ${storeName} - ขอบคุณที่ใช้บริการ</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+    
+    // สร้าง plain text version
+    var plainBody = `ยืนยันคำสั่งซื้อสำเร็จ!\n\n`;
+    plainBody += `เรียน ${orderData.customer.name || 'ลูกค้า'},\n\n`;
+    plainBody += `ขอบคุณสำหรับการสั่งซื้อ! เราได้รับคำสั่งซื้อของคุณเรียบร้อยแล้ว\n\n`;
+    plainBody += `ข้อมูลคำสั่งซื้อ:\n`;
+    plainBody += `รหัสคำสั่งซื้อ: ${orderData.order_id}\n`;
+    plainBody += `วันที่สั่งซื้อ: ${new Date(orderData.order_date).toLocaleString('th-TH')}\n`;
+    plainBody += `จำนวนเงิน: ฿${parseFloat(orderData.total_amount).toFixed(2)}\n`;
+    plainBody += `สถานะ: รอการชำระเงิน\n\n`;
+    
+    plainBody += `รายการสินค้า:\n`;
+    for (var i = 0; i < orderData.items.length; i++) {
+      var item = orderData.items[i];
+      plainBody += `${i + 1}. ${item.name} - จำนวน ${item.quantity || 1} - ฿${parseFloat(item.price).toFixed(2)}\n`;
+    }
+    
+    plainBody += `\nขั้นตอนต่อไป:\n`;
+    plainBody += `1. กรุณาชำระเงินตามจำนวน ฿${parseFloat(orderData.total_amount).toFixed(2)}\n`;
+    plainBody += `2. อัพโหลดหลักฐานการโอนเงิน (สลิป)\n`;
+    plainBody += `3. รอการตรวจสอบและยืนยันจากทางร้าน\n`;
+    plainBody += `4. รับรหัสดาวน์โหลดทางอีเมลหลังจากการชำระเงินได้รับการยืนยัน\n\n`;
+    plainBody += `กรุณาเก็บอีเมลนี้ไว้เป็นหลักฐาน\n\n`;
+    plainBody += `ขอบคุณที่ใช้บริการ,\n${storeName}`;
+    
+    // ส่งอีเมล
+    MailApp.sendEmail({
+      to: orderData.customer.email,
+      subject: subject,
+      htmlBody: htmlBody,
+      body: plainBody
+    });
+    
+    return {
+      status: 'success',
+      message: 'ส่งอีเมลยืนยันคำสั่งซื้อเรียบร้อยแล้ว'
+    };
+  } catch (error) {
+    logError('sendOrderConfirmationEmail', error);
+    return {
+      status: 'error',
+      message: 'เกิดข้อผิดพลาดในการส่งอีเมลยืนยันคำสั่งซื้อ: ' + error.message
+    };
+  }
+}
+
+/**
+ * ฟังก์ชันสำหรับส่งอีเมลยืนยันการชำระเงินให้ลูกค้า
+ */
+function sendPaymentConfirmationEmail(orderData, paymentData) {
+  try {
+    console.log('Starting sendPaymentConfirmationEmail');
+    console.log('Order data:', JSON.stringify(orderData));
+    console.log('Payment data:', JSON.stringify(paymentData));
+    
+    // ตรวจสอบข้อมูลที่จำเป็น
+    if (!orderData || !orderData.customer || !orderData.customer.email) {
+      throw new Error('ไม่พบข้อมูลลูกค้าหรืออีเมล');
+    }
+    
+    if (!paymentData || !paymentData.payment_id) {
+      throw new Error('ไม่พบข้อมูลการชำระเงิน');
+    }
+    
+    var configResult = getConfigJSON();
+    var storeName = 'ร้านค้าดิจิทัลออนไลน์';
+    var storeLogo = '';
+    
+    if (configResult.status === 'success') {
+      storeName = configResult.config.store_name || storeName;
+      storeLogo = configResult.config.store_logo || '';
+    }
+    
+    var subject = '✅ ยืนยันการชำระเงิน #' + orderData.order_id.substring(0, 8) + ' - ' + storeName;
+    
+    // สร้างรายการสินค้า HTML
+    var itemsHtml = '';
+    
+    if (orderData.items && orderData.items.length > 0) {
+      for (var i = 0; i < orderData.items.length; i++) {
+        var item = orderData.items[i];
+        var itemTotal = parseFloat(item.price || 0) * (item.quantity || 1);
+        
+        itemsHtml += `
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">
+            <div style="display: flex; align-items: center;">
+              <img src="${item.image || 'https://via.placeholder.com/50x50?text=No+Image'}" 
+                   alt="${item.name || 'สินค้า'}" 
+                   style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 10px;">
+              <div>
+                <div style="font-weight: 600; color: #374151;">${item.name || 'สินค้าดิจิทัล'}</div>
+                <div style="font-size: 12px; color: #6b7280;">สินค้าดิจิทัล</div>
+              </div>
+            </div>
+          </td>
+          <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;">
+            ${item.quantity || 1}
+          </td>
+          <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee;">
+            ฿${parseFloat(item.price || 0).toFixed(2)}
+          </td>
+          <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee; font-weight: 600;">
+            ฿${itemTotal.toFixed(2)}
+          </td>
+        </tr>
+        `;
+      }
+    }
+    
+    // สร้าง HTML email (ใช้โค้ดเดิมที่ให้ไว้ข้างต้น)
+    var htmlBody = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>ยืนยันการชำระเงิน</title>
+      <style>
+        body {
+          font-family: 'Sarabun', 'Helvetica Neue', Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          margin: 0;
+          padding: 0;
+          background-color: #f5f7fa;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          background-color: #ffffff;
+          border-radius: 8px;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        .success-badge {
+          background-color: #10b981;
+          color: white;
+          padding: 15px 20px;
+          border-radius: 8px;
+          text-align: center;
+          margin: 20px 0;
+        }
+        .order-info {
+          background-color: #f0f9ff;
+          border-left: 4px solid #3b82f6;
+          padding: 15px 20px;
+          margin: 20px 0;
+          border-radius: 4px;
+        }
+        .download-info {
+          background-color: #ecfdf5;
+          border-left: 4px solid #10b981;
+          padding: 15px 20px;
+          margin: 20px 0;
+          border-radius: 4px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="success-badge">
+          <h2 style="margin: 0; font-size: 24px;">🎉 การชำระเงินสำเร็จ!</h2>
+          <p style="margin: 5px 0 0 0;">ขอบคุณสำหรับการสั่งซื้อ</p>
+        </div>
+        
+        <p>เรียน ${orderData.customer.name || 'ลูกค้า'},</p>
+        
+        <p>เรายินดีแจ้งให้ทราบว่าการชำระเงินของคุณได้รับการยืนยันเรียบร้อยแล้ว!</p>
+        
+        <div class="order-info">
+          <h3 style="margin-top: 0; color: #1e40af;">📋 ข้อมูลการชำระเงิน</h3>
+          <p><strong>รหัสคำสั่งซื้อ:</strong> ${orderData.order_id}</p>
+          <p><strong>รหัสการชำระเงิน:</strong> ${paymentData.payment_id}</p>
+          <p><strong>วันที่ชำระเงิน:</strong> ${new Date(paymentData.payment_date).toLocaleString('th-TH')}</p>
+          <p><strong>จำนวนเงิน:</strong> <span style="color: #10b981; font-weight: bold;">฿${parseFloat(paymentData.amount || 0).toFixed(2)}</span></p>
+          <p><strong>สถานะ:</strong> <span style="background-color: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 12px; font-size: 12px;">ชำระเงินสำเร็จ</span></p>
+        </div>
+        
+        <div class="download-info">
+          <h3 style="margin-top: 0; color: #065f46;">📥 ข้อมูลการดาวน์โหลด</h3>
+          <p><strong>รหัสดาวน์โหลดสินค้าของคุณได้ถูกส่งในอีเมลแยกต่างหาก</strong></p>
+          <p>คุณสามารถดาวน์โหลดสินค้าได้ทันที โดย:</p>
+          <ul style="margin: 10px 0; padding-left: 20px;">
+            <li>ใช้รหัสดาวน์โหลดในอีเมลที่ได้รับ</li>
+            <li>หรือเข้าไปที่เว็บไซต์และใช้หน้า "ดาวน์โหลด"</li>
+            <li>หรือเข้าสู่ระบบสมาชิกเพื่อดูรายการดาวน์โหลดทั้งหมด</li>
+          </ul>
+        </div>
+        
+        <div style="text-align: center; margin: 20px 0;">
+          <a href="${ScriptApp.getService().getUrl()}" style="display: inline-block; background-color: #10b981; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600;">
+            📥 ไปหน้าดาวน์โหลด
+          </a>
+        </div>
+        
+        <div style="background-color: #fef3c7; padding: 15px; border-radius: 6px; margin-top: 20px;">
+          <p style="margin: 0; font-size: 14px; color: #92400e;">
+            <strong>💡 เคล็ดลับ:</strong> รหัสดาวน์โหลดของคุณไม่มีวันหมดอายุและสามารถดาวน์โหลดได้ไม่จำกัดครั้ง กรุณาเก็บรหัสไว้อย่างปลอดภัย
+          </p>
+        </div>
+        
+        <div style="text-align: center; padding-top: 20px; border-top: 1px solid #eaeaea; font-size: 14px; color: #666; margin-top: 30px;">
+          <p>หากมีข้อสงสัย กรุณาติดต่อเราที่ ${STORE_EMAIL}</p>
+          <p>&copy; ${new Date().getFullYear()} ${storeName} - ขอบคุณที่ใช้บริการ</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+    
+    // สร้าง plain text version
+    var plainBody = `ยืนยันการชำระเงินสำเร็จ!\n\n`;
+    plainBody += `เรียน ${orderData.customer.name || 'ลูกค้า'},\n\n`;
+    plainBody += `เรายินดีแจ้งให้ทราบว่าการชำระเงินของคุณได้รับการยืนยันเรียบร้อยแล้ว!\n\n`;
+    plainBody += `ข้อมูลการชำระเงิน:\n`;
+    plainBody += `รหัสคำสั่งซื้อ: ${orderData.order_id}\n`;
+    plainBody += `รหัสการชำระเงิน: ${paymentData.payment_id}\n`;
+    plainBody += `วันที่ชำระเงิน: ${new Date(paymentData.payment_date).toLocaleString('th-TH')}\n`;
+    plainBody += `จำนวนเงิน: ฿${parseFloat(paymentData.amount || 0).toFixed(2)}\n`;
+    plainBody += `สถานะ: ชำระเงินสำเร็จ\n\n`;
+    plainBody += `รหัสดาวน์โหลดสินค้าของคุณได้ถูกส่งในอีเมลแยกต่างหาก\n`;
+    plainBody += `คุณสามารถดาวน์โหลดสินค้าได้ทันที\n\n`;
+    plainBody += `ขอบคุณที่ใช้บริการ,\n${storeName}`;
+    
+    console.log('Sending email to:', orderData.customer.email);
+    console.log('Subject:', subject);
+    
+    // ส่งอีเมล
+    MailApp.sendEmail({
+      to: orderData.customer.email,
+      subject: subject,
+      htmlBody: htmlBody,
+      body: plainBody
+    });
+    
+    console.log('Email sent successfully');
+    
+    return {
+      status: 'success',
+      message: 'ส่งอีเมลยืนยันการชำระเงินเรียบร้อยแล้ว'
+    };
+  } catch (error) {
+    console.error('Error in sendPaymentConfirmationEmail:', error);
+    logError('sendPaymentConfirmationEmail', error);
+    return {
+      status: 'error',
+      message: 'เกิดข้อผิดพลาดในการส่งอีเมลยืนยันการชำระเงิน: ' + error.message
+    };
+  }
+}
+
+/**
+ * ฟังก์ชันทดสอบส่งอีเมลยืนยันการชำระเงิน
+ */
+function testPaymentConfirmationEmail() {
+  // ข้อมูลทดสอบ
+  var testOrder = {
+    order_id: 'TEST-ORDER-123',
+    order_date: new Date().toISOString(),
+    total_amount: 299.00,
+    customer: {
+      name: 'ลูกค้าทดสอบ',
+      email: 'naiyachonponthong@gmail.com' // เปลี่ยนเป็นอีเมลจริงของคุณ
+    },
+    items: [
+      {
+        name: 'สินค้าทดสอบ',
+        price: 299.00,
+        quantity: 1,
+        image: 'https://via.placeholder.com/50x50?text=Test'
+      }
+    ]
+  };
+  
+  var testPayment = {
+    payment_id: 'TEST-PAYMENT-123',
+    payment_date: new Date().toISOString(),
+    amount: 299.00,
+    status: 'completed'
+  };
+  
+  var result = sendPaymentConfirmationEmail(testOrder, testPayment);
+  console.log('Test result:', result);
+  return result;
+}
+
+/**
+ * ฟังก์ชันสำหรับค้นหาคำสั่งซื้อด้วยรหัส
+ */
+function searchOrderByQuery(query) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Orders');
+    var data = sheet.getDataRange().getValues();
+    
+    var searchQuery = query.toLowerCase().trim();
+    
+    // ข้ามแถวแรกที่เป็นหัวตาราง
+    for (var i = 1; i < data.length; i++) {
+      var order = JSON.parse(data[i][0]);
+      
+      // ค้นหาด้วยรหัสคำสั่งซื้อ (เต็มหรือบางส่วน)
+      if (order.order_id && order.order_id.toLowerCase().includes(searchQuery)) {
+        return {
+          status: 'success',
+          order: order
+        };
+      }
+    }
+    
+    return {
+      status: 'error',
+      message: 'ไม่พบคำสั่งซื้อที่ตรงกับรหัสที่กรอก กรุณาตรวจสอบรหัสอีกครั้ง'
+    };
+  } catch (error) {
+    logError('searchOrderByQuery', error);
+    return {
+      status: 'error',
+      message: 'เกิดข้อผิดพลาดในการค้นหาคำสั่งซื้อ: ' + error.message
     };
   }
 }
