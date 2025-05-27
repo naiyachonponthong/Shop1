@@ -11,6 +11,8 @@ document.addEventListener('alpine:init', () => {
     searchQuery: '',
     sortOption: 'price-asc',
     configData: {},
+    couponDetailModalOpen: false,
+currentCouponDetail: null,
     
     // Auth state
     currentUser: null,
@@ -129,6 +131,116 @@ showLoginPassword: false,
       role: 'staff',
       status: 'active'
     },
+
+    // เพิ่มใน Alpine.data('main') ส่วน State
+currentPage: 'home',
+previousPage: null,
+storeConfig: {},
+products: [],
+cart: [],
+currentProduct: null,
+searchQuery: '',
+sortOption: 'price-asc',
+configData: {},
+
+// เพิ่มตัวแปรสำหรับโค้ดส่วนลด
+appliedCoupon: null,
+couponCode: '',
+discountAmount: 0,
+coupons: [], // สำหรับแดชบอร์ด
+
+// เพิ่มใน modal state
+couponModalOpen: false,
+editingCoupon: false,
+
+// เพิ่ม form สำหรับโค้ดส่วนลด
+couponForm: {
+  coupon_id: '',
+  code: '',
+  name: '',
+  description: '',
+  discount_type: 'percentage',
+  discount_value: 0,
+  max_discount: 0,
+  minimum_amount: 0,
+  usage_limit: 0,
+  expiry_date: '',
+  status: 'active'
+},
+
+// เพิ่มในส่วน methods
+showCouponDetail(coupon) {
+  this.currentCouponDetail = coupon;
+  this.couponDetailModalOpen = true;
+},
+
+copyCouponCode(code) {
+  if (code) {
+    navigator.clipboard.writeText(code).then(() => {
+      this.showAlert('success', 'คัดลอกแล้ว', `คัดลอกโค้ด "${code}" ไปยังคลิปบอร์ดแล้ว`);
+    }).catch(err => {
+      console.error('Error copying code:', err);
+      this.showAlert('error', 'ข้อผิดพลาด', 'ไม่สามารถคัดลอกโค้ดได้');
+    });
+  }
+},
+
+// แก้ไข computed property
+get finalTotal() {
+  const subtotal = this.calculateTotal();
+  const discount = parseFloat(this.discountAmount) || 0;
+  const final = subtotal - discount;
+  return Math.max(final, 0); // ป้องกันไม่ให้เป็นค่าลบ
+},
+
+applyCoupon() {
+  if (!this.couponCode) {
+    this.showAlert('warning', 'กรุณากรอกโค้ดส่วนลด');
+    return;
+  }
+  
+  // ตรวจสอบว่ามีอีเมลลูกค้าหรือไม่
+  const customerEmail = this.customerInfo.email || (this.currentUser ? this.currentUser.email : '');
+  
+  if (!customerEmail) {
+    this.showAlert('warning', 'กรุณากรอกอีเมลเพื่อใช้โค้ดส่วนลด');
+    return;
+  }
+  
+  const orderAmount = this.calculateTotal();
+  
+  this.showLoading('กำลังตรวจสอบโค้ดส่วนลด...');
+  
+  google.script.run
+    .withSuccessHandler(result => {
+      this.hideLoading();
+      
+      if (result.status === 'success') {
+        this.appliedCoupon = result.coupon;
+        // แปลงเป็นตัวเลขและตรวจสอบ
+        this.discountAmount = parseFloat(result.discount_amount) || 0;
+        
+        this.showAlert('success', 'ใช้โค้ดส่วนลดสำเร็จ', 
+          `ได้รับส่วนลด ฿${this.discountAmount.toFixed(2)}`);
+      } else {
+        this.showAlert('error', 'ข้อผิดพลาด', result.message);
+        this.removeCoupon();
+      }
+    })
+    .withFailureHandler(error => {
+      this.hideLoading();
+      console.error('Error applying coupon:', error);
+      this.showAlert('error', 'ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการตรวจสอบโค้ดส่วนลด');
+      this.removeCoupon();
+    })
+    .validateCoupon(this.couponCode, orderAmount, customerEmail);
+},
+
+removeCoupon() {
+  this.appliedCoupon = null;
+  this.couponCode = '';
+  this.discountAmount = 0; // ตั้งเป็นตัวเลข 0
+},
     
     // ===== Computed =====
     get featuredProducts() {
@@ -232,8 +344,8 @@ showUserModal(user = null) {
     
     // ===== Methods =====
     
-    // Navigation
-    showPage(page) {
+   // แก้ไขฟังก์ชัน showPage ที่มีอยู่แล้ว
+showPage(page) {
   this.previousPage = this.currentPage;
   this.currentPage = page;
   window.scrollTo(0, 0);
@@ -243,7 +355,7 @@ showUserModal(user = null) {
     this.orderCreated = false;
     this.slipImage = null;
     this.currentOrderId = null;
-    this.paymentMethod = 'qrcode'; // ตั้งค่าเริ่มต้นเป็น QR Code
+    this.paymentMethod = 'qrcode'; 
     
     // ถ้ามีผู้ใช้ที่เข้าสู่ระบบอยู่แล้ว ให้ดึงข้อมูลมาใส่ในฟอร์ม
     if (this.currentUser) {
@@ -255,6 +367,7 @@ showUserModal(user = null) {
     }
   } else if (page === 'dashboard') {
     this.loadDashboardData();
+    this.loadCoupons(); // เพิ่มบรรทัดนี้
   } else if (page === 'customerDashboard') {
     this.loadCustomerDashboardData();
     this.customerTab = 'overview';
@@ -554,47 +667,262 @@ downloadDirectly(token) {
   }
 },
     
-    // ฟังก์ชันสำหรับดำเนินการสร้างคำสั่งซื้อ (แยกออกมาจาก createOrder)
-    processCreateOrder() {
-      // สร้างข้อมูลคำสั่งซื้อ
-      const orderData = {
-        customer: {
-          name: this.customerInfo.name,
-          email: this.customerInfo.email,
-          phone: this.customerInfo.phone,
-          user_id: this.currentUser?.user_id || null  // เพิ่ม user_id กรณีเป็นสมาชิก
-        },
-        items: this.cart.map(item => ({
-          product_id: item.product_id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          image: item.image
-        })),
-        total_amount: this.calculateTotal()
-      };
+ processCreateOrder() {
+  const customerEmail = this.customerInfo.email || (this.currentUser ? this.currentUser.email : '');
+  
+  // ถ้ามีโค้ดส่วนลด ให้ใช้โค้ดจริง
+  if (this.appliedCoupon) {
+    this.showLoading('กำลังใช้โค้ดส่วนลดและสร้างคำสั่งซื้อ...');
+    
+    google.script.run
+      .withSuccessHandler(result => {
+        if (result.status === 'success') {
+          // อัพเดทข้อมูลส่วนลด - แปลงเป็นตัวเลข
+          this.discountAmount = parseFloat(result.discount_amount) || 0;
+          
+          // สร้างคำสั่งซื้อ
+          const orderData = {
+            customer: {
+              name: this.customerInfo.name,
+              email: customerEmail,
+              phone: this.customerInfo.phone,
+              user_id: this.currentUser?.user_id || null
+            },
+            items: this.cart.map(item => ({
+              product_id: item.product_id,
+              name: item.name,
+              price: item.price,
+              quantity: item.quantity,
+              image: item.image
+            })),
+            subtotal: this.calculateTotal(),
+            discount_amount: this.discountAmount,
+            coupon_code: this.appliedCoupon?.code || null,
+            coupon_id: this.appliedCoupon?.coupon_id || null,
+            total_amount: this.finalTotal
+          };
+          
+          // บันทึกคำสั่งซื้อ
+          google.script.run
+            .withSuccessHandler(orderResult => {
+              this.hideLoading();
+              
+              if (orderResult.status === 'success') {
+                this.currentOrderId = orderResult.order.order_id;
+                this.orderCreated = true;
+                this.paymentMethod = 'qrcode';
+                
+                this.showAlert('success', 'สร้างคำสั่งซื้อสำเร็จ', 'กรุณาชำระเงินและอัพโหลดสลิป');
+              } else {
+                this.showAlert('error', 'ข้อผิดพลาด', orderResult.message);
+              }
+            })
+            .withFailureHandler(error => {
+              this.hideLoading();
+              console.error('Error creating order:', error);
+              this.showAlert('error', 'ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการสร้างคำสั่งซื้อ');
+            })
+            .saveOrderJSON(orderData);
+            
+        } else {
+          this.hideLoading();
+          this.showAlert('error', 'ข้อผิดพลาด', result.message);
+          this.removeCoupon();
+        }
+      })
+      .withFailureHandler(error => {
+        this.hideLoading();
+        console.error('Error using coupon:', error);
+        this.showAlert('error', 'ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการใช้โค้ดส่วนลด');
+      })
+      .validateAndUseCoupon(this.appliedCoupon.code, this.calculateTotal(), customerEmail);
+      
+  } else {
+    // ไม่มีโค้ดส่วนลด สร้างคำสั่งซื้อปกติ
+    const orderData = {
+      customer: {
+        name: this.customerInfo.name,
+        email: customerEmail,
+        phone: this.customerInfo.phone,
+        user_id: this.currentUser?.user_id || null
+      },
+      items: this.cart.map(item => ({
+        product_id: item.product_id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image
+      })),
+      subtotal: this.calculateTotal(),
+      discount_amount: 0,
+      coupon_code: null,
+      coupon_id: null,
+      total_amount: this.calculateTotal()
+    };
+    
+    google.script.run
+      .withSuccessHandler(result => {
+        this.hideLoading();
+        
+        if (result.status === 'success') {
+          this.currentOrderId = result.order.order_id;
+          this.orderCreated = true;
+          this.paymentMethod = 'qrcode';
+          
+          this.showAlert('success', 'สร้างคำสั่งซื้อสำเร็จ', 'กรุณาชำระเงินและอัพโหลดสลิป');
+        } else {
+          this.showAlert('error', 'ข้อผิดพลาด', result.message);
+        }
+      })
+      .withFailureHandler(error => {
+        this.hideLoading();
+        console.error('Error creating order:', error);
+        this.showAlert('error', 'ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการสร้างคำสั่งซื้อ');
+      })
+      .saveOrderJSON(orderData);
+  }
+},
+
+loadCoupons() {
+  console.log('Loading coupons...'); // เพิ่มบรรทัดนี้
+  
+  google.script.run
+    .withSuccessHandler(result => {
+      console.log('Coupons loaded:', result); // เพิ่มบรรทัดนี้
+      
+      if (result.status === 'success') {
+        this.coupons = result.coupons;
+        console.log('Coupons array:', this.coupons); // เพิ่มบรรทัดนี้
+      } else {
+        console.error('Error loading coupons:', result.message);
+      }
+    })
+    .withFailureHandler(error => {
+      console.error('Error loading coupons:', error);
+    })
+    .getCouponsJSON();
+},
+
+showCouponModal(coupon = null) {
+  this.editingCoupon = !!coupon;
+  
+  if (coupon) {
+    this.couponForm = {
+      coupon_id: coupon.coupon_id,
+      code: coupon.code,
+      name: coupon.name,
+      description: coupon.description,
+      discount_type: coupon.discount_type,
+      discount_value: coupon.discount_value,
+      max_discount: coupon.max_discount || 0,
+      minimum_amount: coupon.minimum_amount || 0,
+      usage_limit: coupon.usage_limit || 0,
+      expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split('T')[0] : '',
+      status: coupon.status,
+      one_per_email: coupon.one_per_email || false // เพิ่มบรรทัดนี้
+    };
+  } else {
+    this.couponForm = {
+      coupon_id: '',
+      code: '',
+      name: '',
+      description: '',
+      discount_type: 'percentage',
+      discount_value: 0,
+      max_discount: 0,
+      minimum_amount: 0,
+      usage_limit: 0,
+      expiry_date: '',
+      status: 'active',
+      one_per_email: false // เพิ่มบรรทัดนี้
+    };
+  }
+  
+  this.couponModalOpen = true;
+},
+
+saveCoupon() {
+  if (!this.couponForm.code || !this.couponForm.name) {
+    this.showAlert('warning', 'ข้อมูลไม่ครบถ้วน', 'กรุณากรอกรหัสโค้ดและชื่อโค้ดส่วนลด');
+    return;
+  }
+  
+  if (this.couponForm.discount_value <= 0) {
+    this.showAlert('warning', 'ข้อมูลไม่ถูกต้อง', 'กรุณากรอกมูลค่าส่วนลดที่ถูกต้อง');
+    return;
+  }
+  
+  this.showLoading('กำลังบันทึกโค้ดส่วนลด...');
+  
+  // แปลงวันที่ให้เป็น ISO format
+  const formData = { ...this.couponForm };
+  if (formData.expiry_date) {
+    formData.expiry_date = new Date(formData.expiry_date + 'T23:59:59').toISOString();
+  }
+  formData.code = formData.code.toUpperCase();
+  
+  google.script.run
+    .withSuccessHandler(result => {
+      this.hideLoading();
+      
+      if (result.status === 'success') {
+        this.couponModalOpen = false;
+        this.loadCoupons();
+        this.showAlert('success', 'บันทึกโค้ดส่วนลดสำเร็จ');
+      } else {
+        this.showAlert('error', 'ข้อผิดพลาด', result.message);
+      }
+    })
+    .withFailureHandler(error => {
+      this.hideLoading();
+      console.error('Error saving coupon:', error);
+      this.showAlert('error', 'ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการบันทึกโค้ดส่วนลด');
+    })
+    .saveCouponJSON(formData);
+},
+
+deleteCoupon(couponId) {
+  Swal.fire({
+    title: 'ยืนยันการลบ',
+    text: 'คุณต้องการลบโค้ดส่วนลดนี้ใช่หรือไม่?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'ลบ',
+    cancelButtonText: 'ยกเลิก'
+  }).then(result => {
+    if (result.isConfirmed) {
+      this.showLoading('กำลังลบโค้ดส่วนลด...');
       
       google.script.run
         .withSuccessHandler(result => {
           this.hideLoading();
           
           if (result.status === 'success') {
-            this.currentOrderId = result.order.order_id;
-            this.orderCreated = true;
-            this.paymentMethod = 'qrcode';
-            
-            this.showAlert('success', 'สร้างคำสั่งซื้อสำเร็จ', 'กรุณาชำระเงินและอัพโหลดสลิป');
+            this.loadCoupons();
+            this.showAlert('success', 'ลบโค้ดส่วนลดสำเร็จ');
           } else {
             this.showAlert('error', 'ข้อผิดพลาด', result.message);
           }
         })
         .withFailureHandler(error => {
           this.hideLoading();
-          console.error('Error creating order:', error);
-          this.showAlert('error', 'ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการสร้างคำสั่งซื้อ');
+          console.error('Error deleting coupon:', error);
+          this.showAlert('error', 'ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการลบโค้ดส่วนลด');
         })
-        .saveOrderJSON(orderData);
-    },
+        .deleteCouponJSON(couponId);
+    }
+  });
+},
+
+// แก้ไขฟังก์ชัน loadDashboardData ที่มีอยู่แล้ว
+loadDashboardData() {
+  this.loadDashboardOrders();
+  this.loadDashboardPayments();
+  this.loadDashboardDownloads();
+  this.loadDashboardUsers();
+  this.loadCoupons(); // เพิ่มบรรทัดนี้
+  this.updateDashboardStats();
+},
     
     handleSlipUpload(event) {
       const file = event.target.files[0];
@@ -1937,6 +2265,26 @@ confirmApprovePayment(paymentId) {
         minute: '2-digit'
       });
     },
+
+    // เพิ่มฟังก์ชันนี้ใน javascript.js
+testSetupSystem() {
+  this.showLoading('กำลังตั้งค่าระบบ...');
+  
+  google.script.run
+    .withSuccessHandler(result => {
+      this.hideLoading();
+      console.log('Setup result:', result);
+      this.showAlert('success', 'ตั้งค่าระบบสำเร็จ', result.message || 'ระบบพร้อมใช้งาน');
+      // โหลดข้อมูลใหม่หลังจากตั้งค่า
+      this.loadCoupons();
+    })
+    .withFailureHandler(error => {
+      this.hideLoading();
+      console.error('Setup error:', error);
+      this.showAlert('error', 'ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการตั้งค่าระบบ');
+    })
+    .setupSystem();
+},
 
    // ฟังก์ชันสำหรับยกเลิกการชำระเงิน
 cancelPayment(paymentId) {
