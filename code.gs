@@ -1726,6 +1726,15 @@ function updatePaymentStatusJSON(paymentId, status) {
           var orderResult = getOrderJSON(payment.order_id);
           
           if (orderResult.status === 'success') {
+            // รีเซ็ตโค้ดคูปองหลังจากสั่งซื้อสำเร็จ
+            try {
+              var resetResult = resetAllCouponsInOrder(payment.order_id);
+              console.log('Coupon reset result:', resetResult);
+            } catch (resetError) {
+              console.error('Error resetting coupon:', resetError);
+              // ไม่ให้ error นี้หยุดกระบวนการหลัก
+            }
+            
             // สร้าง Download 
             var downloadResult = createDownload(payment.order_id);
             
@@ -1746,9 +1755,24 @@ function updatePaymentStatusJSON(paymentId, status) {
           
         } else if (status === 'rejected') {
           // ถ้าสถานะเป็น rejected ให้อัพเดทสถานะคำสั่งซื้อเป็น pending
+          // และรีเซ็ตโค้ดคูปองเพื่อให้ลูกค้าสามารถใช้ได้อีกครั้ง
+          try {
+            var resetResult = resetAllCouponsInOrder(payment.order_id);
+            console.log('Coupon reset after rejection:', resetResult);
+          } catch (resetError) {
+            console.error('Error resetting coupon after rejection:', resetError);
+          }
+          
           updateOrderStatusJSON(payment.order_id, 'pending');
         } else if (status === 'cancelled') {
-          // ถ้าสถานะเป็น cancelled ให้อัพเดทสถานะคำสั่งซื้อเป็น cancelled ด้วย
+          // ถ้าสถานะเป็น cancelled ให้รีเซ็ตโค้ดคูปองด้วย
+          try {
+            var resetResult = resetAllCouponsInOrder(payment.order_id);
+            console.log('Coupon reset after cancellation:', resetResult);
+          } catch (resetError) {
+            console.error('Error resetting coupon after cancellation:', resetError);
+          }
+          
           updateOrderStatusJSON(payment.order_id, 'cancelled');
         }
         
@@ -4414,5 +4438,112 @@ function testCouponsSheet() {
     
   } catch (error) {
     return 'Error: ' + error.message;
+  }
+}
+
+/**
+ * ฟังก์ชันสำหรับรีเซ็ตการใช้งานโค้ดคูปองหลังจากสั่งซื้อสำเร็จ
+ */
+function resetCouponAfterOrder(couponCode, customerEmail) {
+  try {
+    if (!couponCode || !customerEmail) {
+      return {
+        status: 'error',
+        message: 'ไม่พบข้อมูลโค้ดคูปองหรืออีเมลลูกค้า'
+      };
+    }
+    
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Coupons');
+    var data = sheet.getDataRange().getValues();
+    
+    // ข้ามแถวแรกที่เป็นหัวตาราง
+    for (var i = 1; i < data.length; i++) {
+      var coupon = JSON.parse(data[i][0]);
+      
+      if (coupon.code === couponCode.toUpperCase()) {
+        // เริ่มต้น used_by_emails หากยังไม่มี
+        if (!coupon.used_by_emails || !Array.isArray(coupon.used_by_emails)) {
+          coupon.used_by_emails = [];
+        }
+        
+        // ลบอีเมลลูกค้าออกจากรายการ (เพื่อให้สามารถใช้โค้ดได้อีกครั้ง)
+        var emailLower = customerEmail.toLowerCase();
+        var emailIndex = coupon.used_by_emails.indexOf(emailLower);
+        
+        if (emailIndex !== -1) {
+          coupon.used_by_emails.splice(emailIndex, 1);
+          
+          // ลดจำนวนครั้งการใช้งาน
+          if (coupon.used_count > 0) {
+            coupon.used_count = coupon.used_count - 1;
+          }
+          
+          coupon.updated_at = new Date().toISOString();
+          
+          // บันทึกข้อมูลกลับลงใน sheet
+          sheet.getRange(i + 1, 1).setValue(JSON.stringify(coupon));
+          
+          return {
+            status: 'success',
+            message: 'รีเซ็ตการใช้งานโค้ดคูปองสำเร็จ',
+            coupon: coupon
+          };
+        } else {
+          return {
+            status: 'info',
+            message: 'อีเมลนี้ยังไม่เคยใช้โค้ดนี้ หรือถูกรีเซ็ตไปแล้ว'
+          };
+        }
+      }
+    }
+    
+    return {
+      status: 'error',
+      message: 'ไม่พบโค้ดคูปองนี้ในระบบ'
+    };
+  } catch (error) {
+    logError('resetCouponAfterOrder', error);
+    return {
+      status: 'error',
+      message: 'เกิดข้อผิดพลาดในการรีเซ็ตโค้ดคูปอง: ' + error.message
+    };
+  }
+}
+
+/**
+ * ฟังก์ชันสำหรับรีเซ็ตโค้ดคูปองทั้งหมดที่ใช้ในคำสั่งซื้อ
+ */
+function resetAllCouponsInOrder(orderId) {
+  try {
+    // ดึงข้อมูลคำสั่งซื้อ
+    var orderResult = getOrderJSON(orderId);
+    if (orderResult.status !== 'success') {
+      return {
+        status: 'error',
+        message: 'ไม่พบข้อมูลคำสั่งซื้อ'
+      };
+    }
+    
+    var order = orderResult.order;
+    
+    // ตรวจสob่าว่ามีโค้ดคูปองหรือไม่
+    if (!order.coupon_code || !order.customer || !order.customer.email) {
+      return {
+        status: 'info',
+        message: 'ไม่มีโค้ดคูปองในคำสั่งซื้อนี้'
+      };
+    }
+    
+    // รีเซ็ตโค้ดคูปอง
+    var resetResult = resetCouponAfterOrder(order.coupon_code, order.customer.email);
+    
+    return resetResult;
+  } catch (error) {
+    logError('resetAllCouponsInOrder', error);
+    return {
+      status: 'error',
+      message: 'เกิดข้อผิดพลาดในการรีเซ็ตโค้ดคูปอง: ' + error.message
+    };
   }
 }
