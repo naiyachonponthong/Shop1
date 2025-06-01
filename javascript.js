@@ -13,6 +13,8 @@ document.addEventListener('alpine:init', () => {
     configData: {},
     couponDetailModalOpen: false,
 currentCouponDetail: null,
+resetEmailModalOpen: false,
+selectedCouponForReset: null,
     
     // Auth state
     currentUser: null,
@@ -326,6 +328,65 @@ showUserModal(user = null) {
         download.token.toLowerCase().includes(query)
       );
     },
+
+    // เพิ่มฟังก์ชันใหม่ในส่วน methods
+showResetEmailModal(coupon) {
+  this.selectedCouponForReset = coupon;
+  this.resetEmailModalOpen = true;
+},
+
+resetSpecificEmail(couponId, email) {
+  Swal.fire({
+    title: 'รีเซ็ตอีเมลเฉพาะ',
+    text: `คุณต้องการรีเซ็ตการใช้งานสำหรับอีเมล "${email}" หรือไม่?`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'รีเซ็ต',
+    cancelButtonText: 'ยกเลิก',
+    confirmButtonColor: '#f59e0b'
+  }).then(result => {
+    if (result.isConfirmed) {
+      this.showLoading('กำลังรีเซ็ตอีเมล...');
+      
+      google.script.run
+        .withSuccessHandler(result => {
+          this.hideLoading();
+          
+          if (result.status === 'success') {
+            this.loadCoupons();
+            this.resetEmailModalOpen = false;
+            this.showAlert('success', 'รีเซ็ตอีเมลสำเร็จ', `อีเมล "${email}" สามารถใช้โค้ดนี้ได้อีกครั้งแล้ว`);
+          } else {
+            this.showAlert('error', 'ข้อผิดพลาด', result.message);
+          }
+        })
+        .withFailureHandler(error => {
+          this.hideLoading();
+          console.error('Error resetting specific email:', error);
+          this.showAlert('error', 'ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการรีเซ็ตอีเมล');
+        })
+        .resetCouponAfterOrder(this.selectedCouponForReset.code, email);
+    }
+  });
+},
+
+// เพิ่มฟังก์ชันทดสอบรีเซ็ตโค้ดคูปอง
+testCouponReset() {
+  this.showLoading('กำลังทดสอบรีเซ็ตโค้ดคูปอง...');
+  
+  google.script.run
+    .withSuccessHandler(result => {
+      this.hideLoading();
+      console.log('Test result:', result);
+      this.showAlert('info', 'ผลการทดสอบ', result.message);
+    })
+    .withFailureHandler(error => {
+      this.hideLoading();
+      console.error('Test error:', error);
+      this.showAlert('error', 'ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการทดสอบ');
+    })
+    .resetCouponAfterOrder('TESTCODE', 'test@example.com');
+},
     
     // ===== Lifecycle =====
     init() {
